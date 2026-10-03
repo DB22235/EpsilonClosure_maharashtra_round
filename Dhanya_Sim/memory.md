@@ -170,3 +170,14 @@ Starting Phase 7 — adding honeypot decoy and IP-based control profiles, scenar
 Phase 8 — building laptop-optimized sketch dashboard UI for judge presentation. ✅ COMPLETED: Dhanya_Sim/ui/ created with index.html, style.css, app.js, and README.md. Tested and verified on http://localhost:8080.
 Phase 9 — fixing mock mode to produce realistic non-zero metrics for dashboard.
 Phase 9 complete. Fixed NameError in frontend_bridge.py (honeypot/ip_metrics now extracted before use). Added _DEMO_REQS/_DEMO_VALID/_DEMO_WINNERS fallback arrays. Crafted realistic dashboard_feed.json: 50,284 requests, 488 seats/500 capacity, Normal Human 65.77% selection rate, all 15 bot profiles blocked at 0%, honeypot caught 462 bots, 0 false positives, all invariants passed. Dashboard live at http://localhost:8080.
+
+Phase 10 — Live Backend Simulator (`simulator/`) ✅ COMPLETED:
+- Built live adversarial simulator hitting Dhruv's FastAPI backend with real Supabase auth.
+- Implemented 6 modular chunks:
+  - Chunk 1: Scaffolding, config, requirements, fixtures, seed_users.py (100 Supabase accounts).
+  - Chunk 2: BaseClient with auto-logging to MetricsCollector, standard request headers (Idempotency-Key, X-Request-ID).
+  - Chunk 3: 8 specialized client profiles (NormalHuman, FastBot, BurstBot, RetryBot, DirectAPIBot, TokenReplayAttacker, RaceAttacker, SharedNetworkUser).
+  - Chunk 4: Admin helpers + 6 live scenarios (S01 Baseline, S02 Bot Flood, S03 Replay Attack, S04 Race Condition, S05 Full Adversarial, S06 Cutoff Boundary).
+  - Chunk 5: Analyzer (percentiles via numpy, bot advantage ratio, double registration checks) + Reporter (JSON, CSV, MD + latest.json).
+  - Chunk 6: CLI Runner (`python -m simulator.runner --scenario/--all/--list/--seed`) + README.md.
+

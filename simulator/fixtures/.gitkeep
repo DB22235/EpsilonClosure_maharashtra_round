@@ -1,0 +1,6 @@
+This directory holds generated test fixture data.
+
+`test_users.json` is created by running:
+    python fixtures/seed_users.py
+
+It is gitignored and must be regenerated on each machine.

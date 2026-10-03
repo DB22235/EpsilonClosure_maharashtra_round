@@ -183,6 +183,20 @@ Produce realistic, authentic-looking simulation data and non-zero metrics in moc
   - All invariants passed, 0 oversells, 0 replay successes
   - Latency: P50=15.85ms, P95=28.82ms, P99=29.9ms, 6,101 RPS
 
+## Phase 10 — Live Backend Simulator (`simulator/`) (✅ COMPLETED)
+
+### Goal
+Build the live adversarial simulator that connects to Dhruv's real FastAPI backend using real Supabase JWTs, evaluating real concurrency and bot mitigation.
+
+### Work Completed
+- **Chunk 1 (Setup)**: Config, requirements, fixtures, 100-user Supabase seed utility.
+- **Chunk 2 (Client & Metrics)**: Async `BaseClient` with automatic metrics recording and standard header injection (`Idempotency-Key`, `X-Request-ID`).
+- **Chunk 3 (Profiles)**: 8 specialized adversarial and human profiles (`NormalHuman`, `FastBot`, `BurstBot`, `RetryBot`, `DirectAPIBot`, `TokenReplayAttacker`, `RaceAttacker`, `SharedNetworkUser`).
+- **Chunk 4 (Scenarios & Admin)**: Admin helper for campaign creation/lottery + 6 scenarios (S01 Baseline, S02 Bot Flood, S03 Replay Attack, S04 Race Condition, S05 Full Adversarial, S06 Cutoff Boundary).
+- **Chunk 5 (Analyzer & Reporter)**: Per-class stats, latency percentiles, fairness assertions, JSON/CSV/Markdown reports, and `latest.json` for frontend integration.
+- **Chunk 6 (CLI & Documentation)**: Unified runner CLI with `--scenario`, `--all`, `--list`, `--seed` flags and `README.md`.
+
 ## Phase ordering rule
 
 Do not build advanced challenge games, payment integration, Merkle proofs, or multi-region deployment before Phases 3–5 are stable. The core proof is registration integrity, auditable allocation, and atomic inventory.
+
