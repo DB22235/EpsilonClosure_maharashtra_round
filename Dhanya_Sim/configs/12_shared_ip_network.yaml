@@ -1,0 +1,35 @@
+scenario_id: 12
+name: shared_ip_network
+description: >
+  500 legitimate users sharing only 2 IP addresses (e.g., corporate NAT or
+  university network). Tests that IP-level rate limiting does not permanently
+  block legitimate distinct accounts (false positive audit).
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 300
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 100
+  timeout: 10.0
+  http2: true
+  ramp_seconds: 10.0
+
+populations:
+  - profile: shared_network_user
+    count: 500
+    is_bot: false
+    params:
+      shared_ip_pool: ["10.0.0.1", "10.0.0.2"]
+      users_per_ip: 250
+
+assertions:
+  oversell_violations: 0
+  false_positive_rate_max: 0.05   # <5% of legit shared-IP users blocked
+  replay_attack_successes: 0
+
+output:
+  dir: output/12_shared_ip_network
+  json: true
+  csv: true

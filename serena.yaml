@@ -1,0 +1,63 @@
+# Serena Token Optimizer Configuration
+# Workspace: Fair Drop - Adversarial Simulation Module
+
+version: "1.0"
+
+project:
+  name: "FairDrop-Adversarial-Simulator"
+  language: "python"
+  version: "1.0.0"
+  description: "High-performance adversarial HTTP traffic simulation for Fair Drop"
+
+# Token Budgeting Configuration
+token_budgeting:
+  max_context_tokens: 128000
+  response_reserve_tokens: 8192
+  budget_per_request: 16000
+  token_budget_alert_threshold: 0.85
+  cache_strategy: "prompt_caching"
+  pruning_strategy: "selective_summarization"
+
+# Context Window Management
+context_window_management:
+  dynamic_truncation: true
+  preserve_system_prompts: true
+  preserve_recent_interactions: true
+  max_history_turns: 15
+  compression_ratio: 0.5
+  eviction_policy: "least_recently_used"
+
+# File Indexing Settings
+file_indexing:
+  root_path: "./Dhanya_Sim"
+  include_patterns:
+    - "**/*.py"
+    - "**/*.yaml"
+    - "**/*.yml"
+    - "**/*.json"
+    - "**/*.md"
+    - "**/*.txt"
+  exclude_patterns:
+    - "**/.git/**"
+    - "**/.serena/**"
+    - "**/__pycache__/**"
+    - "**/.venv/**"
+    - "**/output/**"
+    - "**/fixtures/**"
+    - "**/reports/**"
+  max_indexed_files: 500
+  max_file_size_kb: 512
+  enable_symbol_indexing: true
+
+# Language Server & Intelligence
+lsp_integration:
+  language_servers:
+    - "python"
+  backend: "LSP"
+  encoding: "utf-8"
+
+# Runtime State
+runtime:
+  status: "active"
+  optimizer_enabled: true
+  mode: "simulation"

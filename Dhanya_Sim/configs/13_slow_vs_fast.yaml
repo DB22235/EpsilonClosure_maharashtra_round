@@ -1,0 +1,36 @@
+scenario_id: 13
+name: slow_vs_fast
+description: >
+  200 slow/accessibility users (10-30s reaction times) competing with
+  500 fast bots. Validates that slow users are not systematically excluded
+  from the lottery by speed-based mechanisms.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 300
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 200
+  timeout: 35.0
+  http2: true
+  ramp_seconds: 5.0
+
+populations:
+  - profile: slow_accessibility_user
+    count: 200
+    is_bot: false
+  - profile: fast_bot
+    count: 500
+    is_bot: true
+
+assertions:
+  oversell_violations: 0
+  false_positive_rate_max: 0.05
+  bot_advantage_ratio_max: 1.1
+  slow_user_blocked_rate_max: 0.05
+
+output:
+  dir: output/13_slow_vs_fast
+  json: true
+  csv: true

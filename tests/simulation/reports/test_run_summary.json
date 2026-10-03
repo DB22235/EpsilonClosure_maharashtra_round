@@ -1,0 +1,58 @@
+{
+  "run_timestamp": "2026-10-03T16:54:56Z",
+  "total_tests": 10,
+  "passed": 10,
+  "failed": 0,
+  "results": [
+    {
+      "test": "test_no_overselling",
+      "status": "PASS",
+      "detail": "oversell=0"
+    },
+    {
+      "test": "test_no_duplicate_allocations",
+      "status": "PASS",
+      "detail": "dup_alloc=0"
+    },
+    {
+      "test": "test_replay_attacks_rejected",
+      "status": "PASS",
+      "detail": "replay_success=0"
+    },
+    {
+      "test": "test_idempotency_consistency",
+      "status": "PASS",
+      "detail": "violations=0"
+    },
+    {
+      "test": "test_fairness_uniform_selection",
+      "status": "PASS",
+      "detail": "ratio=1.00"
+    },
+    {
+      "test": "test_no_false_positives_shared_ip",
+      "status": "PASS",
+      "detail": "false_positives=0"
+    },
+    {
+      "test": "test_no_false_positives_slow_users",
+      "status": "PASS",
+      "detail": "false_positives=0"
+    },
+    {
+      "test": "test_expired_holds_released",
+      "status": "PASS",
+      "detail": "released=12"
+    },
+    {
+      "test": "test_standby_promotions_deterministic",
+      "status": "PASS",
+      "detail": "promotions=3"
+    },
+    {
+      "test": "test_all_scenarios_complete",
+      "status": "PASS",
+      "detail": "completed=15/15"
+    }
+  ]
+}

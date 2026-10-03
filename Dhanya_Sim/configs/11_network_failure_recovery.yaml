@@ -1,0 +1,36 @@
+scenario_id: 11
+name: network_failure_recovery
+description: >
+  Simulates TCP connection drops and mid-flight timeouts. Retry bots
+  re-send with the original idempotency key and verify idempotent recovery.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 180
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 50
+  timeout: 5.0   # short timeout to trigger failures
+  http2: true
+  ramp_seconds: 3.0
+  simulate_network_failure_rate: 0.2   # 20% of requests will timeout
+
+populations:
+  - profile: retry_bot
+    count: 200
+    is_bot: false   # legitimate retry behavior
+    params:
+      max_retries: 5
+      backoff_base_seconds: 1.0
+      preserve_idempotency_key: true
+
+assertions:
+  duplicate_allocation_violations: 0
+  idempotent_retry_same_response: true
+  recovery_rate_min: 0.8
+
+output:
+  dir: output/11_network_failure_recovery
+  json: true
+  csv: true

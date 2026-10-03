@@ -1,0 +1,33 @@
+scenario_id: 7
+name: challenge_replay
+description: >
+  50 attackers attempt to reuse previously-solved challenge tokens.
+  One-time challenge nonces must be invalidated on first use.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 120
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 50
+  timeout: 8.0
+  http2: true
+  ramp_seconds: 1.0
+
+populations:
+  - profile: token_replay_attacker
+    count: 50
+    is_bot: true
+    params:
+      replay_target: challenge_token
+      delay_before_replay_seconds: 2
+
+assertions:
+  replay_attack_successes: 0
+  expected_rejection_codes: ["CHALLENGE_ALREADY_USED", "CHALLENGE_EXPIRED", "REPLAY_DETECTED"]
+
+output:
+  dir: output/07_challenge_replay
+  json: true
+  csv: true

@@ -1,0 +1,34 @@
+scenario_id: 5
+name: direct_api_bypass
+description: >
+  100 direct API bots attempt to reach /register and /hold without valid
+  admission permits or challenge tokens. All must be rejected at the server boundary.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 120
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 50
+  timeout: 8.0
+  http2: true
+  ramp_seconds: 1.0
+
+populations:
+  - profile: direct_api_bot
+    count: 100
+    is_bot: true
+    params:
+      skip_admission_permit: true
+      skip_challenge_token: true
+
+assertions:
+  oversell_violations: 0
+  permit_bypass_successes: 0
+  expected_rejection_status_codes: [400, 401, 403, 422]
+
+output:
+  dir: output/05_direct_api_bypass
+  json: true
+  csv: true

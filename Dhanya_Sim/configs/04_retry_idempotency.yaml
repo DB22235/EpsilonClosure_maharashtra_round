@@ -1,0 +1,36 @@
+scenario_id: 4
+name: retry_idempotency
+description: >
+  200 retry bots simulate lost-response scenarios: re-send with identical
+  idempotency key (must return same result) and also with altered payload
+  (must return HTTP 400/422). Validates idempotency contract.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 120
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 50
+  timeout: 10.0
+  http2: true
+  ramp_seconds: 3.0
+
+populations:
+  - profile: retry_bot
+    count: 200
+    is_bot: true
+    params:
+      max_retries: 5
+      simulate_payload_mutation: true
+
+assertions:
+  oversell_violations: 0
+  duplicate_allocation_violations: 0
+  idempotent_retry_same_response: true
+  mutated_payload_rejected: true
+
+output:
+  dir: output/04_retry_idempotency
+  json: true
+  csv: true

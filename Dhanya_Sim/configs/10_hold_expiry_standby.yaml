@@ -1,0 +1,35 @@
+scenario_id: 10
+name: hold_expiry_standby
+description: >
+  Winners hold seats then abandon them. Validates that the expiry worker
+  releases holds and standby participants are promoted in deterministic order.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 120
+  hold_timeout_seconds: 30
+  absolute_hold_timeout_seconds: 900
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 50
+  timeout: 10.0
+  http2: true
+  ramp_seconds: 5.0
+
+populations:
+  - profile: normal_human
+    count: 300
+    is_bot: false
+    params:
+      abandon_hold_probability: 0.3  # 30% abandon
+
+assertions:
+  oversell_violations: 0
+  duplicate_allocation_violations: 0
+  standby_promotions_min: 1
+
+output:
+  dir: output/10_hold_expiry_standby
+  json: true
+  csv: true

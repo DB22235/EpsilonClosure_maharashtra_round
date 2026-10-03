@@ -1,0 +1,41 @@
+scenario_id: 14
+name: cutoff_boundary
+description: >
+  500 users submit registration requests within ±100ms of the registration
+  close timestamp. Tests that server-side time is authoritative, in-flight
+  requests at cutoff are handled consistently, and no post-cutoff registrations
+  are accepted.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 60
+  cutoff_grace_ms: 0   # strictly server-side; no client grace
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 200
+  timeout: 10.0
+  http2: true
+  ramp_seconds: 0.0
+
+populations:
+  - profile: normal_human
+    count: 250
+    is_bot: false
+    params:
+      submit_at_cutoff_offset_ms: -100   # 100ms before close
+  - profile: fast_bot
+    count: 250
+    is_bot: true
+    params:
+      submit_at_cutoff_offset_ms: 100    # 100ms after close
+
+assertions:
+  oversell_violations: 0
+  post_cutoff_registrations: 0
+  duplicate_allocation_violations: 0
+
+output:
+  dir: output/14_cutoff_boundary
+  json: true
+  csv: true

@@ -1,0 +1,36 @@
+scenario_id: 2
+name: burst_attack
+description: >
+  50 burst bots each fire 100 requests with the same participant identity.
+  Validates deduplication: only 1 valid entry per identity regardless of volume.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 60
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 200
+  timeout: 8.0
+  http2: true
+  ramp_seconds: 2.0
+
+populations:
+  - profile: burst_bot
+    count: 50
+    is_bot: true
+    params:
+      requests_per_identity: 100
+      inter_request_delay_ms: 10
+
+assertions:
+  oversell_violations: 0
+  duplicate_allocation_violations: 0
+  replay_attack_successes: 0
+  max_valid_entries_per_identity: 1
+  rate_limit_rate_min: 0.5   # expect heavy rate-limiting
+
+output:
+  dir: output/02_burst_attack
+  json: true
+  csv: true

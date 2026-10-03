@@ -1,0 +1,33 @@
+scenario_id: 1
+name: normal_baseline
+description: >
+  Baseline sanity check — 1,000 normal human participants, zero bots, 500 capacity.
+  All integrity invariants must pass and selection rate must be ~50%.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 300
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 100
+  timeout: 10.0
+  http2: true
+  ramp_seconds: 10.0
+
+populations:
+  - profile: normal_human
+    count: 1000
+    is_bot: false
+
+assertions:
+  oversell_violations: 0
+  duplicate_allocation_violations: 0
+  replay_attack_successes: 0
+  false_positive_rate_max: 0.0
+  bot_advantage_ratio_max: null   # no bots; not applicable
+
+output:
+  dir: output/01_normal_baseline
+  json: true
+  csv: true

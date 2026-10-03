@@ -1,0 +1,53 @@
+scenario_id: 15
+name: flagship_mixed_50k
+description: >
+  Main judge demonstration scenario. 500 seats, ~50,000 total participants
+  across all client profile types at realistic population ratios.
+  This is the canonical evidence-generation run.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 600
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 300
+  timeout: 15.0
+  http2: true
+  ramp_seconds: 30.0
+
+populations:
+  - profile: normal_human
+    count: 35000
+    is_bot: false
+  - profile: burst_bot
+    count: 5000
+    is_bot: true
+  - profile: fast_bot
+    count: 4000
+    is_bot: true
+  - profile: account_farm
+    count: 2000
+    is_bot: true
+  - profile: retry_bot
+    count: 2000
+    is_bot: false   # retry is legitimate behavior
+  - profile: shared_network_user
+    count: 1000
+    is_bot: false
+  - profile: slow_accessibility_user
+    count: 1000
+    is_bot: false
+
+assertions:
+  oversell_violations: 0
+  duplicate_allocation_violations: 0
+  replay_attack_successes: 0
+  bot_advantage_ratio_max: 1.1
+  false_positive_rate_max: 0.05
+  confirmed_seats_max: 500
+
+output:
+  dir: output/15_flagship_mixed_50k
+  json: true
+  csv: true

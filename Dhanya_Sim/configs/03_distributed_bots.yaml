@@ -1,0 +1,35 @@
+scenario_id: 3
+name: distributed_bots
+description: >
+  5,000 fast bots registering immediately at low per-identity volume
+  across a broad identity space. Tests bot vs human fairness at scale.
+
+campaign:
+  capacity: 500
+  registration_window_seconds: 120
+
+engine:
+  base_url: "http://localhost:8000"
+  concurrency: 200
+  timeout: 10.0
+  http2: true
+  ramp_seconds: 5.0
+
+populations:
+  - profile: fast_bot
+    count: 5000
+    is_bot: true
+  - profile: normal_human
+    count: 1000
+    is_bot: false
+
+assertions:
+  oversell_violations: 0
+  duplicate_allocation_violations: 0
+  replay_attack_successes: 0
+  bot_advantage_ratio_max: 1.1
+
+output:
+  dir: output/03_distributed_bots
+  json: true
+  csv: true

@@ -1,0 +1,41 @@
+scenario_name: "default_adversarial_simulation"
+seed: 42
+campaign_id: "cmp_demo_500"
+campaign_capacity: 500
+population_size: 50000
+registration_window_seconds: 60
+client_profiles:
+  - name: "normal_human"
+    count: 35000
+    type: "normal_human"
+  - name: "fast_bot"
+    count: 5000
+    type: "fast_bot"
+  - name: "burst_bot"
+    count: 3000
+    type: "burst_bot"
+  - name: "retry_bot"
+    count: 2000
+    type: "retry_bot"
+  - name: "account_farm"
+    count: 2000
+    type: "account_farm"
+  - name: "direct_api_bot"
+    count: 1000
+    type: "direct_api_bot"
+  - name: "token_replay_attacker"
+    count: 500
+    type: "token_replay_attacker"
+  - name: "race_condition_attacker"
+    count: 500
+    type: "race_condition_attacker"
+  - name: "shared_network_user"
+    count: 500
+    type: "shared_network_user"
+  - name: "slow_accessibility_user"
+    count: 500
+    type: "slow_accessibility_user"
+request_rate_per_client: 1.0
+concurrency_limit: 100
+retry_count: 3
+output_format: "json"
