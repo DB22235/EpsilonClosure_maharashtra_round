@@ -53,7 +53,7 @@ async def create_test_campaign(
     """Create a campaign and publish it via Dhruv's FastAPI admin endpoints."""
     close_client = False
     if client is None:
-        client = httpx.AsyncClient(base_url=settings.backend_url, timeout=30.0)
+        client = httpx.AsyncClient(base_url=settings.API_BASE_URL, timeout=30.0)
         close_client = True
 
     headers = {
@@ -114,7 +114,7 @@ async def run_lottery(
     """Close registration, freeze, and draw winners for a campaign."""
     close_client = False
     if client is None:
-        client = httpx.AsyncClient(base_url=settings.backend_url, timeout=60.0)
+        client = httpx.AsyncClient(base_url=settings.API_BASE_URL, timeout=60.0)
         close_client = True
 
     headers = {

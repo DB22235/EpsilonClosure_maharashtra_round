@@ -34,7 +34,7 @@ async def run() -> Dict[str, Any]:
     if len(users) < 100:
         raise ValueError(f"Need 100 seeded users for S05, found {len(users)}. Run seed_users.py first.")
 
-    async with httpx.AsyncClient(base_url=settings.backend_url, timeout=45.0) as client:
+    async with httpx.AsyncClient(base_url=settings.API_BASE_URL, timeout=45.0) as client:
         admin_token = await get_admin_token(client)
         campaign = await create_test_campaign(
             admin_token=admin_token,
@@ -49,35 +49,35 @@ async def run() -> Dict[str, Any]:
         # Partition 100 users across 8 profiles
         # 1. 20 NormalHuman (0..19)
         for u in users[0:20]:
-            clients.append(NormalHuman(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(NormalHuman(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # 2. 15 SharedNetworkUser (20..34)
         for u in users[20:35]:
-            clients.append(SharedNetworkUser(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(SharedNetworkUser(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # 3. 20 FastBot (35..54)
         for u in users[35:55]:
-            clients.append(FastBot(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(FastBot(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # 4. 15 BurstBot (55..69)
         for u in users[55:70]:
-            clients.append(BurstBot(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(BurstBot(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # 5. 10 RetryBot (70..79)
         for u in users[70:80]:
-            clients.append(RetryBot(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(RetryBot(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # 6. 5 DirectAPIBot (80..84)
         for u in users[80:85]:
-            clients.append(DirectAPIBot(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(DirectAPIBot(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # 7. 5 TokenReplayAttacker (85..89)
         for u in users[85:90]:
-            clients.append(TokenReplayAttacker(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(TokenReplayAttacker(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # 8. 10 RaceAttacker (90..99)
         for u in users[90:100]:
-            clients.append(RaceAttacker(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(RaceAttacker(user=u, campaign_id=campaign_id, scenario="s05_full_adversarial"))
 
         # Launch all registration and attack tasks concurrently
         tasks = [c.run() for c in clients]

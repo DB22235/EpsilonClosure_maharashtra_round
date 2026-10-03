@@ -9,21 +9,16 @@ All HTTP calls go through ``_request()``, which automatically:
 
 from __future__ import annotations
 
-import sys
 import time
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 import httpx
 
-# Allow imports from simulator/ root when running as a module or directly
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from config import settings
-from metrics.collector import RequestOutcome, collector
+from simulator.config import settings
+from simulator.metrics.collector import RequestOutcome, collector
 
 
 class BaseClient(ABC):
@@ -31,8 +26,7 @@ class BaseClient(ABC):
 
     Attributes:
         client_class: Label used in metrics (override in subclasses).
-        user:         Dict from fixtures/test_users.json with keys
-                      ``user_id``, ``access_token``, ``email``.
+        user:         Dict with keys ``user_id``, ``access_token``, ``email``.
         campaign_id:  UUID of the campaign under test.
         scenario:     Name of the scenario being executed.
         permit:       The admission permit returned by /join, if obtained.
@@ -40,7 +34,12 @@ class BaseClient(ABC):
 
     client_class: str = "base"
 
-    def __init__(self, user: dict, campaign_id: str, scenario: str) -> None:
+    def __init__(
+        self,
+        user: dict,
+        campaign_id: str,
+        scenario: str = "unknown",
+    ) -> None:
         self.user = user
         self.campaign_id = campaign_id
         self.scenario = scenario
@@ -65,21 +64,21 @@ class BaseClient(ABC):
 
         Args:
             method:          HTTP verb ('GET', 'POST', …).
-            path:            URL path relative to API_BASE_URL (e.g. '/campaigns/x/join').
+            path:            URL path relative to API_BASE_URL.
             operation:       Logical name for metrics ('join', 'register', …).
             json_body:       Optional JSON payload.
-            idempotency_key: Value for Idempotency-Key header (state-changing calls).
+            idempotency_key: Value for Idempotency-Key header.
             retry_number:    Current retry attempt index (0 = first attempt).
             extra:           Extra key-value data attached to the recorded outcome.
-            override_token:  Use this JWT instead of self.user['access_token']
-                             (used by token-replay attacker to reuse a stale permit).
+            override_token:  Use this JWT instead of self.user['access_token'].
 
         Returns:
             Tuple of (http_status_code, response_body_dict).
             status_code 0 means a network-level failure occurred.
         """
         url = f"{settings.API_BASE_URL}{path}"
-        token = override_token or self.user["access_token"]
+        # Support both 'access_token' (seed fixture format) and 'token' (legacy)
+        token = override_token or self.user.get("access_token") or self.user.get("token", "")
 
         headers: dict[str, str] = {
             "Authorization": f"Bearer {token}",
@@ -119,7 +118,7 @@ class BaseClient(ABC):
             RequestOutcome(
                 scenario=self.scenario,
                 client_class=self.client_class,
-                user_id=self.user["user_id"],
+                user_id=self.user.get("user_id", "unknown"),
                 operation=operation,
                 idempotency_key=idempotency_key,
                 status_code=status,
@@ -145,7 +144,6 @@ class BaseClient(ABC):
             json_body={},
         )
         if status in (200, 201) and isinstance(body, dict):
-            # Cache the permit for use in register()
             if "admission_token" in body or "permit" in body:
                 self.permit = body
         return status, body
@@ -155,20 +153,13 @@ class BaseClient(ABC):
         idempotency_key: Optional[str] = None,
         override_permit: Optional[dict] = None,
     ) -> tuple[int, dict]:
-        """POST /campaigns/{id}/register — submit lottery entry.
-
-        Args:
-            idempotency_key: Stable key for dedup / lost-response safety.
-                             Defaults to ``reg_{user_id}_{campaign_id}``.
-            override_permit: Use this permit dict instead of self.permit
-                             (for replay attackers reusing a stale permit).
-        """
+        """POST /campaigns/{id}/register — submit lottery entry."""
         permit = override_permit or self.permit or {}
         payload = {
             "admission_token": permit.get("admission_token", ""),
             "nonce": permit.get("nonce", ""),
         }
-        key = idempotency_key or f"reg_{self.user['user_id']}_{self.campaign_id}"
+        key = idempotency_key or f"reg_{self.user.get('user_id', 'unknown')}_{self.campaign_id}"
         return await self._request(
             "POST",
             f"/campaigns/{self.campaign_id}/register",

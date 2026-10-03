@@ -10,7 +10,7 @@ with error code ADMISSION_REQUIRED or INVALID_PERMIT.
 
 from __future__ import annotations
 
-from profiles.base import BaseClient
+from simulator.profiles.base import BaseClient
 
 
 class DirectAPIBot(BaseClient):

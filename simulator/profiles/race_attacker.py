@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 
-from profiles.base import BaseClient
+from simulator.profiles.base import BaseClient
 
 RACE_PARALLEL = 10
 

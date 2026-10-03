@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 
-from profiles.base import BaseClient
+from simulator.profiles.base import BaseClient
 
 REPLAY_COUNT = 5
 REPLAY_DELAY_S = 0.05

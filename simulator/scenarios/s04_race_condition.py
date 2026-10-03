@@ -29,7 +29,7 @@ async def run() -> Dict[str, Any]:
     if len(users) < 10:
         raise ValueError("Need at least 10 seeded users. Run seed_users.py first.")
 
-    async with httpx.AsyncClient(base_url=settings.backend_url, timeout=30.0) as client:
+    async with httpx.AsyncClient(base_url=settings.API_BASE_URL, timeout=30.0) as client:
         admin_token = await get_admin_token(client)
         campaign = await create_test_campaign(
             admin_token=admin_token,
@@ -42,7 +42,7 @@ async def run() -> Dict[str, Any]:
 
         # Register 10 users cleanly first so we have lottery participants
         setup_clients = [
-            NormalHuman(u["user_id"], u["token"], campaign_id, http_client=client)
+            NormalHuman(user=u, campaign_id=campaign_id, scenario="s04_race_condition")
             for u in users[:10]
         ]
         await asyncio.gather(*[c.run() for c in setup_clients], return_exceptions=True)
@@ -52,7 +52,7 @@ async def run() -> Dict[str, Any]:
 
         # Now convert winners into RaceAttackers
         race_attackers = [
-            RaceAttacker(u["user_id"], u["token"], campaign_id, http_client=client)
+            RaceAttacker(user=u, campaign_id=campaign_id, scenario="s04_race_condition")
             for u in users[:10]
         ]
 

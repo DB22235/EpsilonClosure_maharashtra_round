@@ -28,7 +28,7 @@ async def run() -> Dict[str, Any]:
     if len(users) < 20:
         raise ValueError("Need at least 20 seeded users. Run seed_users.py first.")
 
-    async with httpx.AsyncClient(base_url=settings.backend_url, timeout=30.0) as client:
+    async with httpx.AsyncClient(base_url=settings.API_BASE_URL, timeout=30.0) as client:
         admin_token = await get_admin_token(client)
         # Create campaign with ultra-short registration duration or manually trigger close
         campaign = await create_test_campaign(
@@ -42,11 +42,11 @@ async def run() -> Dict[str, Any]:
         logger.info(f"S06 started for campaign {campaign_id}")
 
         early_users = [
-            NormalHuman(u["user_id"], u["token"], campaign_id, http_client=client)
+            NormalHuman(user=u, campaign_id=campaign_id, scenario="s06_cutoff_boundary")
             for u in users[:10]
         ]
         late_users = [
-            NormalHuman(u["user_id"], u["token"], campaign_id, http_client=client)
+            NormalHuman(user=u, campaign_id=campaign_id, scenario="s06_cutoff_boundary")
             for u in users[10:20]
         ]
 

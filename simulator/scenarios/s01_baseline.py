@@ -27,7 +27,7 @@ async def run() -> Dict[str, Any]:
     if len(users) < 50:
         raise ValueError(f"Need at least 50 seeded users, found {len(users)}. Run seed_users.py first.")
 
-    async with httpx.AsyncClient(base_url=settings.backend_url, timeout=30.0) as client:
+    async with httpx.AsyncClient(base_url=settings.API_BASE_URL, timeout=30.0) as client:
         admin_token = await get_admin_token(client)
         campaign = await create_test_campaign(
             admin_token=admin_token,
@@ -41,10 +41,9 @@ async def run() -> Dict[str, Any]:
         # Instantiate 50 NormalHuman clients
         clients = [
             NormalHuman(
-                user_id=u["user_id"],
-                token=u["token"],
+                user=u,
                 campaign_id=campaign_id,
-                http_client=client,
+                scenario="s01_baseline",
             )
             for u in users[:50]
         ]

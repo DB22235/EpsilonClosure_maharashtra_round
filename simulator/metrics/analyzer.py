@@ -33,7 +33,7 @@ def analyze(
     scenario_metadata: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Analyze outcomes recorded by MetricsCollector."""
-    outcomes = collector.get_all()
+    outcomes = collector.all_outcomes()
     total_requests = len(outcomes)
 
     per_class_stats: Dict[str, Dict[str, Any]] = {}
@@ -66,7 +66,7 @@ def analyze(
         stats["users"].add(o.user_id)
         stats["latencies_ms"].append(o.latency_ms)
 
-        if o.endpoint.endswith("/register"):
+        if o.operation == "register":
             stats["registrations_attempted"] += 1
             if o.status_code in (200, 201):
                 stats["registrations_succeeded"] += 1
@@ -78,12 +78,10 @@ def analyze(
         else:
             stats["error_requests"] += 1
 
-        # Check winner detection from /result response payload
-        if o.endpoint.endswith("/result") and isinstance(o.response_body, dict):
-            status = o.response_body.get("status")
-            entitlement = o.response_body.get("entitlement") or o.response_body.get("entitlement_id")
-            is_winner = status == "won" or bool(entitlement)
-            if is_winner:
+        # Check winner detection from extra metadata stored by profiles
+        if o.operation == "result" and o.status_code in (200, 201):
+            # Profiles can annotate o.extra with {"won": True} or {"entitlement_id": "..."}
+            if o.extra.get("won") or o.extra.get("entitlement_id"):
                 user_won_map[o.user_id] = True
 
     # Assign wins to classes
@@ -139,7 +137,7 @@ def analyze(
     # 1. Double registration prevention: verify no user registered > 1 time
     user_reg_success: Dict[str, int] = {}
     for o in outcomes:
-        if o.endpoint.endswith("/register") and o.status_code in (200, 201):
+        if o.operation == "register" and o.status_code in (200, 201):
             user_reg_success[o.user_id] = user_reg_success.get(o.user_id, 0) + 1
 
     double_registrations = sum(1 for count in user_reg_success.values() if count > 1)

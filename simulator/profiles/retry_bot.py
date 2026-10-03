@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 
-from profiles.base import BaseClient
+from simulator.profiles.base import BaseClient
 
 RETRY_COUNT = 3
 RETRY_DELAY_S = 0.1

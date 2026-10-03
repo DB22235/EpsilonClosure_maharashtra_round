@@ -60,16 +60,27 @@ class MetricsCollector:
 
     def __init__(self) -> None:
         self.outcomes: list[RequestOutcome] = []
-        self._lock: asyncio.Lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        """Lazy lock creation — avoids creating a Lock outside an event loop."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     async def record(self, outcome: RequestOutcome) -> None:
         """Append a RequestOutcome in a concurrency-safe manner."""
-        async with self._lock:
+        async with self._get_lock():
             self.outcomes.append(outcome)
 
     def clear(self) -> None:
         """Reset the collector for the next scenario run."""
         self.outcomes.clear()
+        self._lock = None  # Reset lock so next run gets a fresh one in the new event loop
+
+    def reset(self) -> None:
+        """Alias for clear() — resets collector between scenario runs."""
+        self.clear()
 
     def dump(self, path: Path) -> None:
         """Persist all outcomes to a JSON file."""
@@ -82,6 +93,10 @@ class MetricsCollector:
     def all_outcomes(self) -> list[RequestOutcome]:
         """Return a snapshot of all recorded outcomes (not a live reference)."""
         return list(self.outcomes)
+
+    def get_all(self) -> list[RequestOutcome]:
+        """Alias for all_outcomes()."""
+        return self.all_outcomes()
 
     def __len__(self) -> int:
         return len(self.outcomes)

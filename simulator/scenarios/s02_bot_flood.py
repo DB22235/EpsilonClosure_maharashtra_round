@@ -30,7 +30,7 @@ async def run() -> Dict[str, Any]:
     if len(users) < 100:
         raise ValueError(f"Need 100 seeded users for S02, found {len(users)}. Run seed_users.py first.")
 
-    async with httpx.AsyncClient(base_url=settings.backend_url, timeout=30.0) as client:
+    async with httpx.AsyncClient(base_url=settings.API_BASE_URL, timeout=30.0) as client:
         admin_token = await get_admin_token(client)
         campaign = await create_test_campaign(
             admin_token=admin_token,
@@ -44,19 +44,19 @@ async def run() -> Dict[str, Any]:
         clients = []
         # 20 NormalHuman (indices 0..19)
         for u in users[0:20]:
-            clients.append(NormalHuman(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(NormalHuman(user=u, campaign_id=campaign_id, scenario="s02_bot_flood"))
 
         # 40 FastBot (indices 20..59)
         for u in users[20:60]:
-            clients.append(FastBot(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(FastBot(user=u, campaign_id=campaign_id, scenario="s02_bot_flood"))
 
         # 20 BurstBot (indices 60..79)
         for u in users[60:80]:
-            clients.append(BurstBot(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(BurstBot(user=u, campaign_id=campaign_id, scenario="s02_bot_flood"))
 
         # 20 RetryBot (indices 80..99)
         for u in users[80:100]:
-            clients.append(RetryBot(u["user_id"], u["token"], campaign_id, http_client=client))
+            clients.append(RetryBot(user=u, campaign_id=campaign_id, scenario="s02_bot_flood"))
 
         # Launch all concurrently
         tasks = [c.run() for c in clients]

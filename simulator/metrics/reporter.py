@@ -41,15 +41,15 @@ def write_reports(
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "timestamp", "client_class", "user_id", "endpoint",
-            "method", "status_code", "latency_ms", "idempotency_key",
-            "request_id", "is_retry"
+            "timestamp", "scenario", "client_class", "user_id", "operation",
+            "status_code", "latency_ms", "idempotency_key",
+            "error_code", "retry_number"
         ])
         for o in raw_outcomes:
             writer.writerow([
-                o.timestamp, o.client_class, o.user_id, o.endpoint,
-                o.method, o.status_code, o.latency_ms, o.idempotency_key or "",
-                o.request_id or "", o.is_retry
+                o.timestamp, o.scenario, o.client_class, o.user_id, o.operation,
+                o.status_code, o.latency_ms, o.idempotency_key or "",
+                o.error_code or "", o.retry_number
             ])
 
     # 3. Markdown Judge Report

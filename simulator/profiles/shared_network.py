@@ -13,7 +13,7 @@ No extra bot behaviour is added here.
 
 from __future__ import annotations
 
-from profiles.normal_human import NormalHuman
+from simulator.profiles.normal_human import NormalHuman
 
 
 class SharedNetworkUser(NormalHuman):
