@@ -1,0 +1,20 @@
+scenario_name: "Distributed Botnet IP Rotation"
+seed: 19
+campaign_id: "camp_botnet"
+campaign_capacity: 500
+population_size: 5000
+registration_window_seconds: 30
+client_profiles:
+  - name: normal_humans
+    type: normal_human
+    count: 2000
+  - name: distributed_bots
+    type: distributed_botnet
+    count: 2000
+    unique_ips_per_bot: 1
+  - name: datacenter_bots
+    type: datacenter_bot
+    count: 1000
+request_rate_per_client: 3
+concurrency_limit: 300
+output_format: json

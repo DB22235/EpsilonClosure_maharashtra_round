@@ -1,0 +1,19 @@
+scenario_name: "Honeypot Decoy Detection"
+seed: 16
+campaign_id: "camp_honeypot"
+campaign_capacity: 500
+population_size: 2000
+registration_window_seconds: 30
+client_profiles:
+  - name: normal_humans
+    type: normal_human
+    count: 1000
+  - name: naive_bots
+    type: honeypot_trigger_bot
+    count: 500
+  - name: smart_bots
+    type: honeypot_aware_bot
+    count: 500
+request_rate_per_client: 2
+concurrency_limit: 100
+output_format: json

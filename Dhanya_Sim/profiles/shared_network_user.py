@@ -34,8 +34,8 @@ class SharedNetworkUser(BaseProfile):
 
         for i in range(num_users):
             user_id = f"shared_nat_user_{i:02d}"
-            # Human pacing
-            await asyncio.sleep(random.uniform(0.5, 2.0))
+            # Human pacing (collapsed to ~0ms in mock mode)
+            await self.sim_delay(0.5, 2.0)
 
             # Step 1: Join
             join_resp = await self.send_request(
@@ -94,7 +94,7 @@ class SharedNetworkUser(BaseProfile):
         shared_ip = self.config.get("shared_ip", "198.51.100.42")
         headers = {"X-Forwarded-For": shared_ip}
 
-        await asyncio.sleep(random.uniform(0.5, 1.5))
+        await self.sim_delay(0.5, 1.5)
         hold_resp = await self.send_request(
             method="POST",
             path=f"/api/entitlements/{entitlement_id}/hold",

@@ -16,6 +16,11 @@ from .retry_bot import RetryBot
 from .shared_network_user import SharedNetworkUser
 from .slow_accessibility_user import SlowAccessibilityUser
 from .token_replay_attacker import TokenReplayAttacker
+from .honeypot_trigger_bot import HoneypotTriggerBot
+from .honeypot_aware_bot import HoneypotAwareBot
+from .single_ip_burst_bot import SingleIPBurstBot
+from .distributed_botnet import DistributedBotnet
+from .datacenter_bot import DatacenterBot
 
 PROFILE_REGISTRY: Dict[str, Type[BaseProfile]] = {
     "normal_human": NormalHuman,
@@ -28,6 +33,11 @@ PROFILE_REGISTRY: Dict[str, Type[BaseProfile]] = {
     "race_condition_attacker": RaceConditionAttacker,
     "shared_network_user": SharedNetworkUser,
     "slow_accessibility_user": SlowAccessibilityUser,
+    "honeypot_trigger_bot": HoneypotTriggerBot,
+    "honeypot_aware_bot": HoneypotAwareBot,
+    "single_ip_burst_bot": SingleIPBurstBot,
+    "distributed_botnet": DistributedBotnet,
+    "datacenter_bot": DatacenterBot,
 }
 
 __all__ = [
@@ -42,5 +52,10 @@ __all__ = [
     "RaceConditionAttacker",
     "SharedNetworkUser",
     "SlowAccessibilityUser",
+    "HoneypotTriggerBot",
+    "HoneypotAwareBot",
+    "SingleIPBurstBot",
+    "DistributedBotnet",
+    "DatacenterBot",
     "PROFILE_REGISTRY",
 ]

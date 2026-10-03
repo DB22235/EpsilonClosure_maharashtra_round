@@ -122,7 +122,7 @@ Add risk-based friction without claiming perfect bot detection.
 
 Suspicious behavior triggers documented friction/cooldown; legitimate shared-network and slow users are not automatically rejected; challenge results are server-bound and one-time.
 
-## Phase 7 — Adversarial simulation and evidence
+## Phase 7 — Adversarial simulation and evidence (Honeypot + IP Controls: ✅ COMPLETED)
 
 ### Goal
 Prove behavior with real traffic classes and measurements.
@@ -144,7 +144,7 @@ Prove behavior with real traffic classes and measurements.
 
 The simulator can reproduce attacks; results show raw requests versus valid entries; integrity invariants pass; metrics are not hard-coded.
 
-## Phase 8 — Integration, demo hardening, and release
+## Phase 8 — Integration, demo hardening, and release (Dashboard UI: ✅ COMPLETED)
 
 ### Goal
 Create a reliable, judge-ready demonstration.
@@ -164,6 +164,11 @@ Create a reliable, judge-ready demonstration.
 ### Exit criteria
 
 The 21-step judge demonstration runs successfully from campaign creation through audit evidence, with zero oversell and zero duplicate allocation in the recorded run.
+
+## Phase 9 — Realistic Mock Data & Authentic Dashboard Values (🔄 IN-PROGRESS)
+
+### Goal
+Produce realistic, authentic-looking simulation data and non-zero metrics in mock mode for judge presentation.
 
 ## Phase ordering rule
 

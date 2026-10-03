@@ -29,7 +29,7 @@ class NormalHuman(BaseProfile):
         flow_summary = {"participant_id": identity_id, "status": "PENDING", "steps": []}
 
         # Step 1: Join campaign waiting room
-        await asyncio.sleep(random.uniform(1.0, 5.0))
+        await self.sim_delay(1.0, 5.0)
         join_resp = await self.send_request(
             method="POST",
             path=f"/api/campaigns/{campaign_id}/join",
@@ -47,7 +47,7 @@ class NormalHuman(BaseProfile):
 
         # Step 2: Simulated browser refresh / status check (50% chance)
         if random.random() < 0.5:
-            await asyncio.sleep(random.uniform(1.0, 3.0))
+            await self.sim_delay(1.0, 3.0)
             await self.send_request(
                 method="GET",
                 path=f"/api/campaigns/{campaign_id}/status",
@@ -58,7 +58,7 @@ class NormalHuman(BaseProfile):
         # Step 3: Simulated human challenge if requested or step-up required
         challenge_token: Optional[str] = None
         if join_resp and join_resp.status_code == 200 and join_resp.json().get("challenge_required"):
-            await asyncio.sleep(random.uniform(3.0, 8.0))  # Human reaction/challenge completion
+            await self.sim_delay(3.0, 8.0)  # Human reaction/challenge completion
             verify_resp = await self.send_request(
                 method="POST",
                 path="/api/challenges/verify",
@@ -75,7 +75,7 @@ class NormalHuman(BaseProfile):
                 challenge_token = verify_resp.json().get("verification_token")
 
         # Step 4: Register with unique idempotency key
-        await asyncio.sleep(random.uniform(1.0, 5.0))
+        await self.sim_delay(1.0, 5.0)
         idempotency_key = self.generate_idempotency_key()
         reg_payload = {
             "participant_id": identity_id,
@@ -109,7 +109,7 @@ class NormalHuman(BaseProfile):
         claim_summary = {"entitlement_id": entitlement_id, "status": "PENDING"}
 
         # Step 1: Hold seat
-        await asyncio.sleep(random.uniform(1.0, 3.0))
+        await self.sim_delay(1.0, 3.0)
         hold_resp = await self.send_request(
             method="POST",
             path=f"/api/entitlements/{entitlement_id}/hold",
@@ -123,7 +123,7 @@ class NormalHuman(BaseProfile):
             return claim_summary
 
         # Step 2: Human review and validation delay
-        await asyncio.sleep(random.uniform(2.0, 5.0))
+        await self.sim_delay(2.0, 5.0)
 
         # Step 3: Redeem seat
         redeem_resp = await self.send_request(

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fair Drop — Simulator Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ROW 1: HEADER + BIG NUMBERS -->
+  <header class="header">
+    <div class="header-left">
+      <h1 class="title">Fair Drop Simulator</h1>
+      <p class="subtitle">50,000 people · 500 seats · 0 unfair advantages</p>
+      <button id="runBtn" class="run-btn" onclick="runSimulation()">▶ Run Simulation</button>
+      <span id="runStatus" class="run-status"></span>
+    </div>
+    <div class="header-numbers">
+      <div class="sticky" id="stat-requests">
+        <span class="big-num">—</span>
+        <span class="big-label">requests</span>
+      </div>
+      <div class="sticky" id="stat-winners">
+        <span class="big-num">—</span>
+        <span class="big-label">winners</span>
+      </div>
+      <div class="sticky" id="stat-oversells">
+        <span class="big-num">—</span>
+        <span class="big-label">oversells</span>
+      </div>
+      <div class="sticky" id="stat-bar">
+        <span class="big-num">—</span>
+        <span class="big-label">bot adv. ratio</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ROW 2: TWO-COLUMN GRID -->
+  <main class="grid">
+
+    <!-- LEFT: FAIRNESS CHART -->
+    <section class="panel panel-left sketch-card">
+      <h2 class="panel-title">Did bots win more? No.</h2>
+      <div id="fairnessChart" class="bar-chart"></div>
+      <p class="chart-footnote" id="chartFootnote"></p>
+    </section>
+
+    <!-- RIGHT: ATTACK LOG + INVARIANTS -->
+    <section class="panel panel-right">
+      <div class="sketch-card attack-section">
+        <h2 class="panel-title">What we blocked</h2>
+        <ul id="attackLog" class="attack-list"></ul>
+      </div>
+      <div class="sketch-card invariant-section">
+        <h2 class="panel-title">Mathematical proof</h2>
+        <ul id="invariantList" class="invariant-list"></ul>
+        <div id="invariantStatus" class="invariant-status"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER BAR -->
+  <footer class="footer">
+    <span id="footerMetrics"></span>
+    <span class="footer-quote">"We removed the race. Data proves fairness."</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -20,6 +20,10 @@ from .adversarial_scenarios import (
     IdempotencyScenario,
     SharedIPFalsePositiveScenario,
     MixedAdversarialScenario,
+    HoneypotDecoyScenario,
+    IPRateLimitScenario,
+    CGNATSharedIPScenario,
+    DistributedBotnetScenario,
 )
 
 _CONFIGS_DIR = Path(__file__).parent.parent / "configs"
@@ -128,6 +132,30 @@ SCENARIO_REGISTRY: dict = {
         "description": "Flagship mixed 50k — judge demo, all profiles.",
         "name": "flagship_mixed_50k",
     },
+    16: {
+        "class": HoneypotDecoyScenario,
+        "config_path": _cfg("16_honeypot_decoy_test.yaml"),
+        "description": "Honeypot decoy test.",
+        "name": "honeypot_decoy_test",
+    },
+    17: {
+        "class": IPRateLimitScenario,
+        "config_path": _cfg("17_ip_rate_limit_stress.yaml"),
+        "description": "IP rate limit stress test.",
+        "name": "ip_rate_limit_stress",
+    },
+    18: {
+        "class": CGNATSharedIPScenario,
+        "config_path": _cfg("18_cgnat_shared_ip.yaml"),
+        "description": "CGNAT shared IP users.",
+        "name": "cgnat_shared_ip",
+    },
+    19: {
+        "class": DistributedBotnetScenario,
+        "config_path": _cfg("19_distributed_botnet_vs_ip.yaml"),
+        "description": "Distributed botnet vs IP limits.",
+        "name": "distributed_botnet_vs_ip",
+    },
 }
 
 # Name-to-ID index for convenient lookup by string
@@ -174,6 +202,10 @@ __all__ = [
     "IdempotencyScenario",
     "SharedIPFalsePositiveScenario",
     "MixedAdversarialScenario",
+    "HoneypotDecoyScenario",
+    "IPRateLimitScenario",
+    "CGNATSharedIPScenario",
+    "DistributedBotnetScenario",
     # Registry
     "SCENARIO_REGISTRY",
     "SCENARIO_NAME_INDEX",

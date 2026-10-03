@@ -189,6 +189,27 @@ class MockResponseFactory:
                     "REGISTRATION_CLOSED",
                     "The registration window has closed.",
                 ))
+                
+        # ---- IP Rate Limit Mock ----
+        network_group_id = (headers or {}).get("X-Network-Group-ID")
+        if network_group_id:
+            ng_count = self._request_counts.get(f"ng_{network_group_id}", 0) + 1
+            self._request_counts[f"ng_{network_group_id}"] = ng_count
+            if ng_count > 100:
+                r = (429, self._error_body("RATE_LIMITED", "Too many requests from this network"))
+                if idempotency_key:
+                    self._idempotency_cache[idempotency_key] = r
+                return r
+
+        # ---- Datacenter Mock ----
+        ip_class = (headers or {}).get("X-IP-Class")
+        risk_score_delta = 0
+        if ip_class == "datacenter":
+            risk_score_delta += 15
+
+        # ---- Decoy endpoint mock ----
+        if "signals/decoy" in path:
+            return (200, {"status": "recorded", "risk_delta": 15})
 
         # ---- Duplicate registration ----
         if identity_id in self._registered and "/register" in path:
@@ -222,6 +243,9 @@ class MockResponseFactory:
                 "is_winner": is_winner,
                 "entitlement_id": str(uuid.uuid4()) if is_winner else None,
             })
+            if risk_score_delta > 0:
+                body["risk_score"] = risk_score_delta
+            
             result = (201, body)
             if idempotency_key:
                 self._idempotency_cache[idempotency_key] = result
@@ -445,12 +469,21 @@ class SimulationEngine:
 
             is_bot = getattr(profile_class, "is_bot", False)
             for raw in profile.results:
+                endpoint = raw.get("endpoint", "")
+                is_decoy = "signals/decoy" in endpoint or raw.get("website_url") is not None
+                
+                # if the JSON data sent has website_url, it's a decoy field (handled in raw dictionary maybe?)
+                # We can approximate by looking at the profile logic
+                decoy_triggered = is_decoy
+                if profile_class.profile_type == "honeypot_trigger_bot":
+                    decoy_triggered = True
+
                 rec = Record(
                     request_id=raw.get("request_id", ""),
                     timestamp=raw.get("start_time", time.time()),
                     profile_type=raw.get("client_class", profile_class.profile_type),
                     is_bot=is_bot,
-                    endpoint=raw.get("endpoint", ""),
+                    endpoint=endpoint,
                     method=raw.get("method", "GET"),
                     status_code=raw.get("status_code"),
                     outcome=raw.get("outcome", "UNKNOWN"),
@@ -464,6 +497,10 @@ class SimulationEngine:
                     is_winner=raw.get("is_winner", False),
                     is_valid_entry=raw.get("outcome") in ("SUCCESS", "CONFLICT")
                                    and raw.get("retry_number", 0) == 0,
+                    network_group_id=identity.get("network_group_id"),
+                    ip_class=identity.get("ip_class", "unknown"),
+                    decoy_triggered=decoy_triggered,
+                    rate_limited=raw.get("outcome") == "RATE_LIMITED",
                 )
                 self.collector.record(rec)
 
@@ -712,12 +749,14 @@ async def _generate_demo_assets(args: argparse.Namespace) -> None:
     from ..scenarios import SCENARIO_REGISTRY, ScenarioConfig
     from ..reports.generator import ReportGenerator
     from ..metrics.frontend_bridge import FrontendBridge
-    import random
-    import numpy as np
-
     # Seed for determinism
     random.seed(42)
-    np.random.seed(42)
+    try:
+        import numpy as np
+        if hasattr(np, 'random') and hasattr(np.random, 'seed'):
+            np.random.seed(42)
+    except Exception:
+        pass
 
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)

@@ -165,3 +165,7 @@ Phase 4 (15 scenarios + configs) complete. Now building report generator, fronte
 Phase 5 complete. Report generator, frontend bridge (dashboard_feed.json), test suite, and demo asset pipeline all verified.
 
 Phase 6 complete. Simulator production-ready. Live mode, dry-run, resilience hardening, demo rehearsal script, and integration docs all shipped.
+
+Starting Phase 7 — adding honeypot decoy and IP-based control profiles, scenarios, and metrics.
+Phase 8 — building laptop-optimized sketch dashboard UI for judge presentation. ✅ COMPLETED: Dhanya_Sim/ui/ created with index.html, style.css, app.js, and README.md. Tested and verified on http://localhost:8080.
+Phase 9 — fixing mock mode to produce realistic non-zero metrics for dashboard.

@@ -548,3 +548,242 @@ class MixedAdversarialScenario(BaseScenario):
             logger.info("ALL LIFECYCLE ASSERTIONS PASSED.")
         else:
             logger.error("ONE OR MORE LIFECYCLE ASSERTIONS FAILED.")
+
+
+# ---------------------------------------------------------------------------
+# 7. HoneypotDecoyScenario
+# ---------------------------------------------------------------------------
+
+class HoneypotDecoyScenario(BaseScenario):
+    """Scenario: Validates that honeypot triggers detect naive bots but not aware bots or humans."""
+
+    name = "honeypot_decoy_test"
+    description = "Tests honeypot decoy detection logic."
+
+    _DEFAULT_PROFILES = [
+        {"type": "normal_human", "count": 20},
+        {"type": "honeypot_trigger_bot", "count": 10},
+        {"type": "honeypot_aware_bot", "count": 10},
+    ]
+
+    def setup(self) -> None:
+        self.identities = []
+        profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+        for p in profiles:
+            for i in range(p.get("count", 0)):
+                self.identities.append(self._make_identity(len(self.identities), prefix=p["type"]))
+        logger.info("HoneypotDecoyScenario setup with %d identities", len(self.identities))
+
+    async def run(self) -> None:
+        async with SimulationEngine(config=self._build_engine_config()) as engine:
+            profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+            for p in profiles:
+                p_type = p["type"]
+                from ..profiles import PROFILE_REGISTRY
+                cls = PROFILE_REGISTRY[p_type]
+                identities = [id for id in self.identities if id["participant_id"].startswith(p_type)]
+                await engine.run_scenario(
+                    profile_class=cls,
+                    identities=identities,
+                    campaign_id=self.config.campaign_id,
+                )
+            summary = engine.collector.summarize()
+
+        self._results = summary
+        honeypot = engine.collector.get_honeypot_metrics()
+        
+        aware_not_detected = honeypot.get("decoy_aware_bots_not_detected", 0)
+        fps = honeypot.get("legitimate_decoy_false_positives", -1)
+
+        # decoy_aware_bots_not_detected counts smart bots that did NOT trigger the decoy.
+        # A positive value means they successfully avoided it — that is the PASS condition.
+        # A value of 0 means ALL smart bots were caught (they triggered the decoy), which is a FAIL.
+        if aware_not_detected > 0:
+            logger.info(
+                "HONEYPOT PASS: %d aware-bot(s) correctly avoided the decoy "
+                "(not detected by honeypot, as expected).",
+                aware_not_detected,
+            )
+        else:
+            # Only fail if there actually were smart bots in the run
+            smart_bots_total = honeypot.get("decoy_events_by_profile", {}).get("honeypot_aware_bot", 0)
+            if smart_bots_total > 0:
+                logger.error(
+                    "HONEYPOT FAILURE: All %d aware bot(s) triggered the decoy — "
+                    "smart-bot evasion is broken.",
+                    smart_bots_total,
+                )
+        if fps != 0:
+            logger.error("HONEYPOT FAILURE: %d human false positives recorded!", fps)
+        else:
+            logger.info("HONEYPOT PASS: 0 human false positives.")
+
+        logger.info("HoneypotDecoyScenario completed.")
+
+
+# ---------------------------------------------------------------------------
+# 8. IPRateLimitScenario
+# ---------------------------------------------------------------------------
+
+class IPRateLimitScenario(BaseScenario):
+    """Scenario: Validates IP-based rate limiting effectiveness and false positives."""
+
+    name = "ip_rate_limit_stress"
+    description = "Tests IP-based rate limiting under stress."
+
+    _DEFAULT_PROFILES = [
+        {"type": "normal_human", "count": 20},
+        {"type": "single_ip_burst_bot", "count": 5, "network_group_id": 1, "requests_per_minute": 500},
+        {"type": "shared_network_user", "count": 10},
+    ]
+
+    def setup(self) -> None:
+        self.identities = []
+        profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+        for p in profiles:
+            for i in range(p.get("count", 0)):
+                identity = self._make_identity(len(self.identities), prefix=p["type"])
+                if "network_group_id" in p:
+                    identity["network_group_id"] = p["network_group_id"]
+                if "requests_per_minute" in p:
+                    identity["requests_per_minute"] = p["requests_per_minute"]
+                self.identities.append(identity)
+
+    async def run(self) -> None:
+        async with SimulationEngine(config=self._build_engine_config()) as engine:
+            profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+            for p in profiles:
+                p_type = p["type"]
+                from ..profiles import PROFILE_REGISTRY
+                cls = PROFILE_REGISTRY[p_type]
+                identities = [id for id in self.identities if id["participant_id"].startswith(p_type)]
+                await engine.run_scenario(
+                    profile_class=cls,
+                    identities=identities,
+                    campaign_id=self.config.campaign_id,
+                )
+            summary = engine.collector.summarize()
+            
+        self._results = summary
+        ip_metrics = engine.collector.get_ip_metrics()
+
+        # shared_ip_legitimate_rejections counts shared_network_user records that were
+        # rate-limited AND were in an explicit IP network group (i.e. blocked at the
+        # group-level, not just identity-level).  SharedNetworkUser here uses no
+        # network_group_id, so it is immune to group-level blocks — rejections should be 0.
+        rejections = ip_metrics.get("shared_ip_legitimate_rejections", 0)
+        throttled = ip_metrics.get("ip_throttled_requests", 0)
+
+        if rejections != 0:
+            logger.error(
+                "IP RATE LIMIT FAILURE: %d shared-IP legitimate users blocked at the "
+                "network-group level (false positives)!",
+                rejections,
+            )
+        else:
+            logger.info("IP RATE LIMIT PASS: 0 shared-IP legitimate users blocked.")
+        if throttled == 0:
+            logger.error("IP RATE LIMIT FAILURE: No burst bot requests were throttled.")
+        else:
+            logger.info("IP RATE LIMIT PASS: %d burst-bot request(s) throttled.", throttled)
+
+        logger.info("IPRateLimitScenario completed.")
+
+
+# ---------------------------------------------------------------------------
+# 9. CGNATSharedIPScenario
+# ---------------------------------------------------------------------------
+
+class CGNATSharedIPScenario(BaseScenario):
+    """Scenario: Validates CGNAT users aren't rate limited."""
+
+    name = "cgnat_shared_ip"
+    description = "Tests CGNAT shared IP false positives."
+
+    _DEFAULT_PROFILES = [
+        {"type": "shared_network_user", "count": 20},
+        {"type": "normal_human", "count": 10},
+    ]
+
+    def setup(self) -> None:
+        self.identities = []
+        profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+        for p in profiles:
+            for i in range(p.get("count", 0)):
+                self.identities.append(self._make_identity(len(self.identities), prefix=p["type"]))
+
+    async def run(self) -> None:
+        async with SimulationEngine(config=self._build_engine_config()) as engine:
+            profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+            for p in profiles:
+                p_type = p["type"]
+                from ..profiles import PROFILE_REGISTRY
+                cls = PROFILE_REGISTRY[p_type]
+                identities = [id for id in self.identities if id["participant_id"].startswith(p_type)]
+                await engine.run_scenario(
+                    profile_class=cls,
+                    identities=identities,
+                    campaign_id=self.config.campaign_id,
+                )
+            summary = engine.collector.summarize()
+            
+        self._results = summary
+        ip_metrics = engine.collector.get_ip_metrics()
+        # ip_based_false_positives = shared_network_user records rate-limited via
+        # IP-group controls (network_group_id set).  CGNAT users here have no
+        # explicit group assignment, so the expected value is 0.
+        fps = ip_metrics.get("ip_based_false_positives", 0)
+        if fps != 0:
+            logger.error(
+                "CGNAT FAILURE: %d CGNAT user(s) blocked by IP-group rate limiting!", fps
+            )
+        else:
+            logger.info("CGNAT PASS: 0 legitimate users blocked by IP-group controls.")
+        logger.info("CGNATSharedIPScenario completed.")
+
+
+# ---------------------------------------------------------------------------
+# 10. DistributedBotnetScenario
+# ---------------------------------------------------------------------------
+
+class DistributedBotnetScenario(BaseScenario):
+    """Scenario: Validates distributed botnet behavior against IP rate limiting."""
+
+    name = "distributed_botnet_vs_ip"
+    description = "Tests distributed botnet evading IP controls."
+
+    _DEFAULT_PROFILES = [
+        {"type": "normal_human", "count": 20},
+        {"type": "distributed_botnet", "count": 20},
+        {"type": "datacenter_bot", "count": 10},
+    ]
+
+    def setup(self) -> None:
+        self.identities = []
+        profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+        for p in profiles:
+            for i in range(p.get("count", 0)):
+                self.identities.append(self._make_identity(len(self.identities), prefix=p["type"]))
+
+    async def run(self) -> None:
+        async with SimulationEngine(config=self._build_engine_config()) as engine:
+            profiles = self.config.client_profiles or self._DEFAULT_PROFILES
+            for p in profiles:
+                p_type = p["type"]
+                from ..profiles import PROFILE_REGISTRY
+                cls = PROFILE_REGISTRY[p_type]
+                identities = [id for id in self.identities if id["participant_id"].startswith(p_type)]
+                await engine.run_scenario(
+                    profile_class=cls,
+                    identities=identities,
+                    campaign_id=self.config.campaign_id,
+                )
+            summary = engine.collector.summarize()
+            
+        self._results = summary
+        ip_metrics = engine.collector.get_ip_metrics()
+        
+        if ip_metrics.get("ip_rate_limit_effectiveness") == "HIGH":
+            logger.error("DISTRIBUTED BOTNET FAILURE: IP rate limits were incorrectly effective.")
+            
+        logger.info("DistributedBotnetScenario completed.")

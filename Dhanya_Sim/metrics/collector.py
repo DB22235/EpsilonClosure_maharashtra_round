@@ -73,6 +73,11 @@ class Record:
     idempotency_key: Optional[str] = None
     is_winner: bool = False
     is_valid_entry: bool = False
+    network_group_id: Optional[int] = None
+    ip_class: Optional[str] = None  # "residential", "datacenter", "mobile", "unknown"
+    decoy_triggered: bool = False
+    decoy_type: Optional[str] = None  # "hidden_field", "invisible_button", "decoy_endpoint"
+    rate_limited: bool = False
 
 
 class MetricsCollector:
@@ -141,6 +146,11 @@ class MetricsCollector:
             idempotency_key=metric.get("idempotency_key"),
             is_winner=bool(metric.get("is_winner", False)),
             is_valid_entry=bool(metric.get("is_valid_entry", False)),
+            network_group_id=metric.get("network_group_id"),
+            ip_class=metric.get("ip_class"),
+            decoy_triggered=bool(metric.get("decoy_triggered", False)),
+            decoy_type=metric.get("decoy_type"),
+            rate_limited=bool(metric.get("rate_limited", False)),
         )
         self.record(rec)
 
@@ -360,6 +370,78 @@ class MetricsCollector:
         }
         return summary
 
+    def get_honeypot_metrics(self) -> dict:
+        with self._lock:
+            records = list(self._records)
+            
+        decoy_events = [r for r in records if r.decoy_triggered]
+        naive_events = len([r for r in decoy_events if r.profile_type == "honeypot_trigger_bot"])
+        smart_events = len([r for r in decoy_events if r.profile_type == "honeypot_aware_bot"])
+        human_events = len([r for r in decoy_events if r.profile_type == "normal_human"])
+        
+        naive_bots = len([r for r in records if r.profile_type == "honeypot_trigger_bot"])
+        smart_bots = len([r for r in records if r.profile_type == "honeypot_aware_bot"])
+        
+        return {
+            "decoy_events_total": len(decoy_events),
+            "decoy_events_by_profile": {
+                "honeypot_trigger_bot": naive_events,
+                "honeypot_aware_bot": smart_events,
+                "normal_human": human_events,
+            },
+            "decoy_aware_bots_not_detected": smart_bots - smart_events if smart_bots > 0 else 0,
+            "legitimate_decoy_false_positives": human_events,
+            "decoy_detection_rate_naive": round(naive_events / naive_bots, 4) if naive_bots > 0 else 0.0,
+            "decoy_detection_rate_smart": round(smart_events / smart_bots, 4) if smart_bots > 0 else 0.0,
+        }
+
+    def get_ip_metrics(self) -> dict:
+        with self._lock:
+            records = list(self._records)
+
+        groups = {r.network_group_id for r in records if r.network_group_id is not None}
+        group_counts = {}
+        for r in records:
+            if r.network_group_id is not None:
+                group_counts[r.network_group_id] = group_counts.get(r.network_group_id, 0) + 1
+
+        reqs_per_group = list(group_counts.values())
+
+        rate_limited_reqs = [r for r in records if r.rate_limited or r.outcome == "RATE_LIMITED"]
+        groups_rate_limited = len({r.network_group_id for r in rate_limited_reqs if r.network_group_id is not None})
+
+        # IP-group-level false positives: shared_network_user records that were
+        # rate-limited AND carry an explicit network_group_id (meaning the block
+        # originated from the IP-group limiter, not the per-identity limiter).
+        shared_ip_legitimate = [
+            r for r in rate_limited_reqs
+            if r.profile_type == "shared_network_user" and r.network_group_id is not None
+        ]
+
+        dc_reqs = [r for r in records if r.ip_class == "datacenter"]
+
+        dist_bots = [r for r in records if r.profile_type == "distributed_botnet"]
+        dist_bot_ips = len({r.network_group_id for r in dist_bots if r.network_group_id is not None})
+
+        # effectiveness is LOW if distributed bots aren't heavily rate limited
+        dist_bot_limited = [r for r in dist_bots if r.rate_limited or r.outcome == "RATE_LIMITED"]
+        effectiveness = "HIGH" if len(dist_bot_limited) > 0 and len(dist_bot_limited) >= len(dist_bots) * 0.5 else "LOW"
+
+        fps = len(shared_ip_legitimate)
+
+        return {
+            "unique_network_groups": len(groups),
+            "requests_per_group_p95": self._percentile(reqs_per_group, 95) if reqs_per_group else 0.0,
+            "groups_rate_limited": groups_rate_limited,
+            "ip_throttled_requests": len(rate_limited_reqs),
+            "shared_ip_legitimate_rejections": fps,
+            "datacenter_ip_requests": len(dc_reqs),
+            "datacenter_ip_high_risk_scored": len(dc_reqs),  # Mock mode scores all of them
+            "distributed_bot_ip_diversity": dist_bot_ips,
+            "ip_rate_limit_effectiveness": effectiveness,
+            "ip_based_false_positives": fps,
+        }
+
     def export_json(self, path: str) -> None:
         """Export the full metrics summary to a JSON file.
 
@@ -430,6 +512,28 @@ class MetricsCollector:
             console.print(
                 f"  Invariants Passed         : [{colour}]{passed}[/{colour}]"
             )
+
+            # Honeypot Decoy Results
+            hp = self.get_honeypot_metrics()
+            if hp.get("decoy_events_total", 0) > 0:
+                fps = hp.get("legitimate_decoy_false_positives", 0)
+                smart_evade = hp.get("decoy_aware_bots_not_detected", 0)
+                colour = "green" if fps == 0 and smart_evade == 0 else ("yellow" if fps == 0 else "red")
+                console.print(f"\n[bold]🍯 Honeypot Decoy Results[/bold]")
+                console.print(f"  Decoy Events Total        : {hp.get('decoy_events_total')}")
+                console.print(f"  False Positives (Humans)  : [{colour}]{fps}[/{colour}]")
+                console.print(f"  Smart Bots Evaded         : [{colour}]{smart_evade}[/{colour}]")
+                
+            # IP Control Results
+            ip = self.get_ip_metrics()
+            if ip.get("unique_network_groups", 0) > 0:
+                fps_ip = ip.get("ip_based_false_positives", 0)
+                eff = ip.get("ip_rate_limit_effectiveness", "LOW")
+                colour_ip = "green" if fps_ip == 0 and eff == "HIGH" else ("yellow" if fps_ip == 0 else "red")
+                console.print(f"\n[bold]🌐 IP Control Results[/bold]")
+                console.print(f"  Groups Rate Limited       : {ip.get('groups_rate_limited')}")
+                console.print(f"  False Positives (CGNAT)   : [{colour_ip}]{fps_ip}[/{colour_ip}]")
+                console.print(f"  Effectiveness vs DistBots : [{colour_ip}]{eff}[/{colour_ip}]")
 
             # Per-profile table
             per = summary.get("per_profile", {})

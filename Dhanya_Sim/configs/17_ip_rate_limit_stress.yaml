@@ -1,0 +1,22 @@
+scenario_name: "IP Rate Limit Stress Test"
+seed: 17
+campaign_id: "camp_ip_stress"
+campaign_capacity: 500
+population_size: 3000
+registration_window_seconds: 30
+client_profiles:
+  - name: normal_humans
+    type: normal_human
+    count: 1000
+  - name: burst_from_single_ip
+    type: single_ip_burst_bot
+    count: 10
+    requests_per_minute: 500
+    network_group_id: 1
+  - name: shared_ip_legitimate
+    type: shared_network_user
+    count: 500
+    network_groups: 2
+request_rate_per_client: 1
+concurrency_limit: 200
+output_format: json

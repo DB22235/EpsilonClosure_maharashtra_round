@@ -36,8 +36,8 @@ class SlowAccessibilityUser(BaseProfile):
             "fallback_requested": False,
         }
 
-        # Step 1: Slow deliberate join with assistive technology delay
-        await asyncio.sleep(random.uniform(5.0, 10.0))
+        # Step 1: Slow deliberate join with assistive technology delay (collapsed in mock mode)
+        await self.sim_delay(5.0, 10.0)
         join_resp = await self.send_request(
             method="POST",
             path=f"/api/campaigns/{campaign_id}/join",
@@ -59,8 +59,8 @@ class SlowAccessibilityUser(BaseProfile):
             except Exception:
                 pass
 
-        # Step 2: Extended deliberate pause (screen reading / navigating)
-        await asyncio.sleep(random.uniform(5.0, 12.0))
+        # Step 2: Extended deliberate pause (screen reading / navigating, collapsed in mock mode)
+        await self.sim_delay(5.0, 12.0)
 
         # Step 3: Challenge fallback step if challenge is required
         challenge_token: Optional[str] = None
@@ -77,8 +77,8 @@ class SlowAccessibilityUser(BaseProfile):
                     "requested_fallback": "audio_or_accessible_captcha",
                 },
             )
-            # Patiently complete accessible challenge
-            await asyncio.sleep(random.uniform(8.0, 15.0))
+            # Patiently complete accessible challenge (collapsed in mock mode)
+            await self.sim_delay(8.0, 15.0)
             verify_resp = await self.send_request(
                 method="POST",
                 path="/api/challenges/verify",
@@ -93,8 +93,8 @@ class SlowAccessibilityUser(BaseProfile):
             if verify_resp and verify_resp.status_code == 200:
                 challenge_token = verify_resp.json().get("verification_token")
 
-        # Step 4: Final registration with keyboard metadata
-        await asyncio.sleep(random.uniform(5.0, 10.0))
+        # Step 4: Final registration with keyboard metadata (collapsed in mock mode)
+        await self.sim_delay(5.0, 10.0)
         idempotency_key = self.generate_idempotency_key()
         reg_resp = await self.send_request(
             method="POST",
@@ -131,7 +131,7 @@ class SlowAccessibilityUser(BaseProfile):
         identity_id = self.config.get("identity_id", "user_a11y")
         claim_summary = {"entitlement_id": entitlement_id, "status": "PENDING"}
 
-        await asyncio.sleep(random.uniform(5.0, 10.0))
+        await self.sim_delay(5.0, 10.0)
         hold_resp = await self.send_request(
             method="POST",
             path=f"/api/entitlements/{entitlement_id}/hold",
@@ -144,7 +144,7 @@ class SlowAccessibilityUser(BaseProfile):
             claim_summary["status"] = "HOLD_FAILED"
             return claim_summary
 
-        await asyncio.sleep(random.uniform(5.0, 12.0))
+        await self.sim_delay(5.0, 12.0)
         redeem_resp = await self.send_request(
             method="POST",
             path=f"/api/entitlements/{entitlement_id}/redeem",

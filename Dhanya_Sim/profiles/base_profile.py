@@ -7,6 +7,7 @@ No backend internals or database models are imported; communication is strictly 
 
 from abc import ABC, abstractmethod
 import asyncio
+import random
 import time
 from typing import Any, Dict, List, Optional
 import uuid
@@ -41,6 +42,21 @@ class BaseProfile(ABC):
     def generate_idempotency_key(self) -> str:
         """Generate a random UUID4 idempotency key."""
         return str(uuid.uuid4())
+
+    async def sim_delay(self, lo: float, hi: float) -> None:
+        """Sleep for a realistic human-pacing delay, or near-zero in mock/test mode.
+
+        In mock mode (``config["mock_mode"] is True``) the delay collapses to
+        1 ms so that the full test suite completes in seconds rather than minutes.
+
+        Args:
+            lo: Minimum sleep duration in seconds (real mode).
+            hi: Maximum sleep duration in seconds (real mode).
+        """
+        if self.config.get("mock_mode", False):
+            await asyncio.sleep(0.001)
+        else:
+            await asyncio.sleep(random.uniform(lo, hi))
 
     def record_result(
         self,

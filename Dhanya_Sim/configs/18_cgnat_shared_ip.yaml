@@ -1,0 +1,17 @@
+scenario_name: "CGNAT Shared IP Legitimate Users"
+seed: 18
+campaign_id: "camp_cgnat"
+campaign_capacity: 500
+population_size: 2000
+registration_window_seconds: 60
+client_profiles:
+  - name: mobile_users_shared_ip
+    type: shared_network_user
+    count: 1500
+    network_groups: 3
+  - name: normal_humans
+    type: normal_human
+    count: 500
+request_rate_per_client: 1
+concurrency_limit: 100
+output_format: json

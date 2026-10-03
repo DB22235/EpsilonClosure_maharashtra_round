@@ -56,6 +56,7 @@ class ScenarioConfig:
     mock_mode: bool = False
     scenario_id: int = 0
     tags: List[str] = field(default_factory=list)
+    client_profiles: List[Dict[str, Any]] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
