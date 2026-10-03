@@ -1,0 +1,47 @@
+# Environment secrets and credentials (strictly protect keys & envs)
+.env
+.env.*
+*.env
+*.env.local
+*.env.production
+*.env.development
+*.key
+*.pem
+*.cert
+*.crt
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Packaging
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local runner shims
+powershell.cmd
