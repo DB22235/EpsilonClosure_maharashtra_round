@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fair Drop — MediaPipe Hand Challenge</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #111; color: #eee; }
+    main { max-width: 960px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.25rem; }
+    label { display: block; font-size: 0.8rem; margin-top: 8px; color: #bbb; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1b1b1b; color: #fff; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stage { position: relative; margin-top: 16px; background: #000; border-radius: 8px; overflow: hidden; }
+    video, canvas { width: 100%; display: block; }
+    canvas { position: absolute; inset: 0; }
+    .hud { margin-top: 12px; padding: 12px; background: #1c2333; border-radius: 8px; }
+    .hud strong { color: #7dd3fc; }
+    button { margin-top: 12px; margin-right: 8px; padding: 10px 14px; border: 0; border-radius: 6px; background: #2563eb; color: #fff; cursor: pointer; }
+    button.secondary { background: #334155; }
+    pre { white-space: pre-wrap; font-size: 0.75rem; background: #0b0b0b; padding: 8px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MediaPipe Hands challenge client</h1>
+    <p>Opens the webcam, tracks 21 landmarks, and POSTs <code>model_metadata</code> to <code>/api/v1/challenges/{id}/verify</code>.</p>
+
+    <label>API base (no trailing path beyond /api/v1)</label>
+    <input id="apiBase" value="http://127.0.0.1:8000/api/v1" />
+
+    <div class="row">
+      <div>
+        <label>Bearer token</label>
+        <input id="token" placeholder="JWT" />
+      </div>
+      <div>
+        <label>Campaign ID</label>
+        <input id="campaignId" placeholder="uuid" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Challenge ID (filled after create)</label>
+        <input id="challengeId" />
+      </div>
+      <div>
+        <label>Nonce</label>
+        <input id="nonce" />
+      </div>
+    </div>
+
+    <button id="btnCreate" type="button">Create MEDIAPIPE challenge</button>
+    <button id="btnCam" class="secondary" type="button">Start camera</button>
+    <button id="btnVerify" type="button">Submit verify</button>
+
+    <div class="hud">
+      <div id="instruction">Waiting for challenge instructions…</div>
+      <div>Hand: <strong id="handLabel">—</strong> · Landmarks: <strong id="lmCount">0</strong> · Trajectory: <strong id="trCount">0</strong></div>
+    </div>
+
+    <div class="stage">
+      <video id="inputVideo" autoplay playsinline></video>
+      <canvas id="outputCanvas"></canvas>
+    </div>
+
+    <pre id="log"></pre>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script>
+    const video = document.getElementById("inputVideo");
+    const canvas = document.getElementById("outputCanvas");
+    const ctx = canvas.getContext("2d");
+    const logEl = document.getElementById("log");
+
+    let instructions = { gesture: "THUMBS_UP", hand: "LEFT" };
+    let implementationVersion = "mediapipe-v1:THUMBS_UP:LEFT";
+    let lastLandmarks = [];
+    let trajectory = [];
+    let lastHand = "";
+    let startedAt = Date.now();
+    let camera = null;
+
+    function log(msg, obj) {
+      const line = obj ? msg + "\n" + JSON.stringify(obj, null, 2) : msg;
+      logEl.textContent = line + "\n\n" + logEl.textContent;
+    }
+
+    function renderInstruction() {
+      const g = (instructions.gesture || "THUMBS_UP").replace("_", " ");
+      const h = instructions.hand || "LEFT";
+      document.getElementById("instruction").innerHTML =
+        instructions.instruction_text
+          ? "<strong>" + instructions.instruction_text + "</strong>"
+          : "<strong>Show your [" + h + "] hand with " + g + "</strong>";
+    }
+
+    async function createChallenge() {
+      const base = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const token = document.getElementById("token").value.trim();
+      const campaignId = document.getElementById("campaignId").value.trim();
+      const res = await fetch(base + "/challenges", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token,
+        },
+        body: JSON.stringify({
+          campaign_id: campaignId,
+          type: "MEDIAPIPE",
+          operation: "REGISTER",
+          requested_reason: "MEDIUM_RISK",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        log("Create failed " + res.status, data);
+        return;
+      }
+      document.getElementById("challengeId").value = data.challenge_id;
+      document.getElementById("nonce").value = data.nonce;
+      instructions = data.instructions || instructions;
+      implementationVersion = data.implementation_version;
+      startedAt = Date.now();
+      trajectory = [];
+      renderInstruction();
+      log("Challenge created", data);
+    }
+
+    function onResults(results) {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
+        const lm = results.multiHandLandmarks[0];
+        lastLandmarks = lm.map((p) => [p.x, p.y, p.z]);
+        const wrist = lastLandmarks[0];
+        trajectory.push([wrist[0], wrist[1]]);
+        if (trajectory.length > 32) trajectory.shift();
+        lastHand = (results.multiHandedness[0].label || "").toUpperCase();
+        if (window.drawConnectors && window.HAND_CONNECTIONS) {
+          drawConnectors(ctx, lm, HAND_CONNECTIONS, { color: "#22d3ee", lineWidth: 2 });
+          drawLandmarks(ctx, lm, { color: "#fbbf24", lineWidth: 1 });
+        }
+      } else {
+        lastLandmarks = [];
+        lastHand = "";
+      }
+      document.getElementById("handLabel").textContent = lastHand || "—";
+      document.getElementById("lmCount").textContent = String(lastLandmarks.length);
+      document.getElementById("trCount").textContent = String(trajectory.length);
+      ctx.restore();
+    }
+
+    async function startCamera() {
+      const hands = new Hands({
+        locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file,
+      });
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6,
+      });
+      hands.onResults(onResults);
+      camera = new Camera(video, {
+        onFrame: async () => { await hands.send({ image: video }); },
+        width: 640,
+        height: 480,
+      });
+      await camera.start();
+      log("Camera started");
+    }
+
+    async function submitVerify() {
+      const base = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const token = document.getElementById("token").value.trim();
+      const challengeId = document.getElementById("challengeId").value.trim();
+      const nonce = document.getElementById("nonce").value.trim();
+      const payload = {
+        nonce: nonce,
+        type: "MEDIAPIPE",
+        result: "SUCCESS",
+        confidence: 1.0,
+        duration_ms: Math.max(0, Date.now() - startedAt),
+        implementation_version: implementationVersion,
+        hand_used: lastHand || instructions.hand,
+        model_metadata: {
+          landmarks: lastLandmarks,
+          trajectory: trajectory,
+          gesture: instructions.gesture,
+          hand: lastHand || instructions.hand,
+        },
+      };
+      const res = await fetch(base + "/challenges/" + challengeId + "/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      log("Verify HTTP " + res.status, { request: payload, response: data });
+    }
+
+    document.getElementById("btnCreate").addEventListener("click", () => createChallenge().catch((e) => log(String(e))));
+    document.getElementById("btnCam").addEventListener("click", () => startCamera().catch((e) => log(String(e))));
+    document.getElementById("btnVerify").addEventListener("click", () => submitVerify().catch((e) => log(String(e))));
+    renderInstruction();
+  </script>
+</body>
+</html>

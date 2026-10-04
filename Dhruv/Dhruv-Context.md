@@ -30,15 +30,50 @@ The backend must not claim perfect bot detection. It must enforce one eligible e
 - Own metrics, audit, and public receipt APIs.
 - Keep integration boundaries flexible for future models/challenges.
 
-## Do not own
+## Do not own & strict boundaries
 
 Do not modify:
-
-- Rohan’s frontend implementation.
-- Naman’s MediaPipe internals.
-- Dhanya’s simulator internals.
+- **Rohan’s frontend**: `/apps/frontend/*` (integrate only via HTTP/OpenAPI contracts).
+- **Naman’s MediaPipe & Challenge internals**: `/apps/mediapipe/*`, `/apps/backend/app/schemas/challenge.py`, `/apps/backend/app/services/challenge_service.py`, `/apps/backend/app/api/routes_challenges.py`, `turnstile.py`.
+- **Dhanya’s simulator**: `/apps/simulator/*` (provide test endpoints and contracts).
+- **Database Schema**: `/apps/backend/app/models/*` is **FROZEN**. Do not alter models or generate Alembic migrations.
+- **Future modules out of scope for Step 5**: Do not implement lottery, inventory, seat holds, entitlements, or background workers until their respective phases.
 
 Define and document HTTP contracts so the other team members can work independently.
+
+## Current implementation status & Step 5 focus
+
+### Progress to date
+- **Step 1 — Scaffold (COMPLETE ✅)**: Clean FastAPI architecture, pydantic-settings, CORS, health endpoints, ruff linted.
+- **Step 2 — Database (COMPLETE ✅)**: Async SQLAlchemy 2.0 with asyncpg and NullPool for Supabase transaction pooler (port 6543). All 17 tables created.
+- **Step 3 — Auth & JIT Provisioning (COMPLETE ✅)**: JWT decoding, RBAC roles (`PARTICIPANT`, `ADMIN`, etc.), JIT user/profile/participant provisioning.
+- **Step 4 — Campaign Lifecycle (COMPLETE ✅)**: Full campaign state machine (`DRAFT` → `COMPLETED`), public status polling, admin management endpoints.
+- **Step 4.5 — Integration Test Suite (COMPLETE ✅)**: 18/18 pytest tests passing for health, auth, RBAC, and campaign state machines.
+- **Step 4.6 — Live Supabase Auth & ES256 Support (COMPLETE ✅)**: Implemented dual-mode asymmetric ES256 JWKS decoder + HS256 secret fallback with `cryptography`. Verified live user `tester@fairdrop.com`.
+- **Step 5 — Registration + Admission Permits (COMPLETE ✅)**: Signed HMAC-SHA256 admission permits, idempotent single registration, challenge seam.
+- **Step 7 — Lottery Engine & Roster Freeze (COMPLETE ✅)**: Deterministic uniform lottery with committed randomness and HMAC-SHA256 Fisher-Yates variant.
+- **Step 8 — Atomic Seat Holds & Redemption (COMPLETE ✅)**: Row-level locking `SELECT ... FOR UPDATE SKIP LOCKED` for two-phase seat holds and bookings.
+- **Steps 9 & 10 — Background Workers, Metrics & Verifiable Audit (COMPLETE ✅)**: Expiry workers, standby promotion, real-time metrics, verifiable audit queries. Full suite: 37/37 tests passing.
+- **Step 11 — Rate Limits, Hardening & Production Safety (COMPLETE ✅)**: In-memory sliding window rate limiter, security headers, 64KB body guard, idempotency replay bypass, error sanitization. Full suite: 43/43 tests passing.
+- **Files permitted to create/edit**:
+  - `app/core/rate_limit_store.py` (NEW)
+  - `app/middleware/rate_limit.py` (NEW)
+  - `app/middleware/security_headers.py` (NEW)
+  - `app/config.py` (add rate limit knobs and body limits)
+  - `app/main.py` (mount middleware)
+  - `app/dependencies.py` (rate limit dependencies)
+  - `app/api/routes_registration.py` (apply limits)
+  - `app/api/routes_entitlements.py` (apply limits)
+  - `app/api/routes_auth.py` (light limits)
+  - `app/api/routes_admin.py` (admin limits)
+  - `apps/backend/scripts/test_rate_limits.py` (NEW)
+  - `apps/backend/scripts/security_smoke_test.py` (NEW)
+  - `apps/backend/scripts/simulate_user_flow.py` (add hardening checks)
+  - `apps/backend/tests/test_hardening_and_rate_limits.py` (NEW)
+- **Do Not Touch**:
+  - Models / Alembic (Schema is **FROZEN**)
+  - Naman's files (`/apps/mediapipe/*`, `challenge.py`, `turnstile.py`, etc.)
+
 
 ## Recommended backend structure
 

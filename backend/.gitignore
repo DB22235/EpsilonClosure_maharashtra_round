@@ -1,0 +1,72 @@
+# ==============================================================================
+# FairDrop Backend .gitignore
+# ==============================================================================
+
+# Python Bytecode & Build Artifacts
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.manifest
+*.spec
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Secrets & Environment Variables
+.env
+.env.*
+*.env
+*.env.local
+*.key
+*.pem
+*.cert
+*.crt
+# Keep example environment files
+!.env.example
+!*.env.example
+
+# Test & Coverage Artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Linter & Type Checker Caches
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+
+# Databases & Archives
+*.db
+*.sqlite
+*.sqlite3
+*.zip
+*.tar.gz
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local Runner Shim & Scratch
+powershell.cmd
+scratch/
+check_*.py
+test_create_direct_user.py
+test_reset_pwd.py
+setup_demo_accounts.py

@@ -1,0 +1,56 @@
+# ==============================================================================
+# FairDrop Frontend .gitignore
+# ==============================================================================
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js Build Output
+.next/
+out/
+build/
+dist/
+
+# TypeScript Cache
+*.tsbuildinfo
+next-env.d.ts.bak
+
+# Secrets & Environment Variables
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Allow example environment file
+!.env.example
+!*.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# V0 & Vercel Sandbox Files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+.turbo/
+.eslintcache
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+# Local Runner & Scratch
+powershell.cmd
+scratch/

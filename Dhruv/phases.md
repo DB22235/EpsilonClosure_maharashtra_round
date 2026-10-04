@@ -2,7 +2,7 @@
 
 The project is divided into **8 required phases**. Each phase has an exit condition. The team should not move to polish while a previous phase is failing its correctness criteria.
 
-## Phase 1 — Contract and repository foundation
+## Phase 1 — Contract and repository foundation (COMPLETE ✅)
 
 ### Goal
 Create the shared working structure so four people can work independently without merge conflicts.
@@ -21,47 +21,48 @@ Create the shared working structure so four people can work independently withou
 
 All four workspaces start independently, owners are clear, and frontend/simulator can use mock API responses.
 
-## Phase 2 — Default live-website foundation
+## Phase 2 — Default live-website foundation (COMPLETE ✅)
 
 ### Goal
 Build the minimum secure, observable web platform.
 
 ### Work
 
-- FastAPI startup and health/readiness endpoints.
-- Frontend shell and routing.
-- PostgreSQL connection and migrations.
-- Authentication/session skeleton.
+- FastAPI startup and health/readiness endpoints (Step 1).
+- PostgreSQL connection with asyncpg + SQLAlchemy 2.0 (Step 2).
+- All 17 core tables initialized in Supabase PostgreSQL (Step 2).
+- Authentication and session skeleton with Supabase JWT + JIT provisioning (Step 3).
+- Campaign state machine and admin controls (Step 4).
 - Request IDs, structured errors, logging, validation.
-- Basic authorization and admin role.
-- Redis integration only if needed.
-- Common test fixtures.
+- 18/18 integration tests passed (Step 4.5).
+- Dual-mode ES256 JWKS + HS256 auth verification (Step 4.6).
 
 ### Exit criteria
 
-The application starts from a clean environment, performs authenticated API calls, persists a test record, and reports health correctly.
+The application starts from a clean environment, performs authenticated API calls, persists a test record, and reports health correctly. **PASSED.**
 
-## Phase 3 — Campaign and fair registration
+## Phase 3 — Campaign and fair registration (IN PROGRESS ⏳ — Step 5)
 
 ### Goal
 Implement one valid registration per participant.
 
 ### Work
 
-- Campaign creation and state machine.
-- Registration window using server time.
-- Participant/verification model.
-- Admission permit.
-- Registration endpoint.
-- Idempotency records and request hashes.
-- Unique campaign/participant constraint.
-- Refresh/reconnect status endpoint.
+- Campaign creation and state machine (COMPLETE).
+- Registration window using server time (COMPLETE).
+- Participant/verification model (COMPLETE).
+- Admission permit generation and HMAC-SHA256 signature (Step 5).
+- Registration endpoint with `Idempotency-Key` header (Step 5).
+- Idempotency records and request hashes (Step 5).
+- Unique campaign/participant constraint enforcement (Step 5).
+- Refresh/reconnect status endpoint recovery slice (Step 5).
+- Challenge seam integration with Naman (Step 5).
 
 ### Exit criteria
 
 Normal registration works; duplicate submissions and retry-after-timeout do not create extra entries; registration closes correctly.
 
-## Phase 4 — Roster freeze and auditable allocation
+## Phase 4 — Roster freeze and auditable allocation (PENDING)
 
 ### Goal
 Make allocation fair, reproducible, and inspectable.

@@ -1,0 +1,2356 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Fair Drop API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get current user identity",
+        "description": "Resolves caller identity via Supabase JWT, triggers JIT provisioning on first call, and returns profile + participant state.",
+        "operationId": "get_me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me/admin": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Verify admin access",
+        "description": "Returns caller profile if they hold ADMIN role in the profiles table, otherwise returns 403 Forbidden.",
+        "operationId": "get_me_admin_api_v1_auth_me_admin_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "List published campaigns",
+        "description": "Returns a paginated list of non-draft campaigns. Supports optional status filtering.",
+        "operationId": "list_campaigns_api_v1_campaigns_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Get public campaign details",
+        "description": "Returns public details for an open or completed campaign. Draft campaigns return 404.",
+        "operationId": "get_campaign_api_v1_campaigns__campaign_id__get",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignPublicResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/status": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Get participant campaign status (recovery endpoint)",
+        "description": "Returns current participant registration state, admission availability, and campaign lifecycle state from server truth.",
+        "operationId": "get_campaign_status_endpoint_api_v1_campaigns__campaign_id__status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/result": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Get participant lottery draw result",
+        "description": "Returns personal draw result: WON (with rank and entitlement), WAITLISTED, or NOT_REGISTERED.",
+        "operationId": "get_participant_result_endpoint_api_v1_campaigns__campaign_id__result_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/join": {
+      "post": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Join campaign waiting room and obtain cryptographic admission permit",
+        "description": "Validates campaign state and issues a short-lived, HMAC-SHA256 signed admission permit token.",
+        "operationId": "join_campaign_endpoint_api_v1_campaigns__campaign_id__join_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/JoinRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns/{campaign_id}/register": {
+      "post": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Register participant entry for campaign with idempotency",
+        "description": "Atomically consumes the admission permit, evaluates risk/challenge seams, and creates a unique registration entry.",
+        "operationId": "register_campaign_endpoint_api_v1_campaigns__campaign_id__register_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create campaign (DRAFT)",
+        "description": "Creates a new campaign in DRAFT state. Seats are not generated until prepare step.",
+        "operationId": "create_campaign_endpoint_api_v1_admin_campaigns_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List all campaigns (admin)",
+        "description": "Returns all campaigns including DRAFT and PREPARING, with aggregated seat and registration metrics.",
+        "operationId": "list_campaigns_admin_api_v1_admin_campaigns_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CampaignAdminResponse"
+                  },
+                  "title": "Response List Campaigns Admin Api V1 Admin Campaigns Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get campaign detail (admin)",
+        "description": "Returns full administrative view of campaign with inventory counts and pauses.",
+        "operationId": "get_campaign_admin_api_v1_admin_campaigns__campaign_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update campaign (DRAFT or PREPARING only)",
+        "description": "Updates policy and metadata fields while campaign is in DRAFT or PREPARING state.",
+        "operationId": "update_campaign_endpoint_api_v1_admin_campaigns__campaign_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}/prepare": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Prepare campaign and generate seat inventory",
+        "description": "Transitions DRAFT -> PREPARING, calculates policy hash, and bulk-inserts initial seat inventory.",
+        "operationId": "prepare_campaign_endpoint_api_v1_admin_campaigns__campaign_id__prepare_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignTransitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}/publish": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Publish and open campaign",
+        "description": "Transitions PREPARING -> OPEN. Makes campaign visible to the public and open for registrations.",
+        "operationId": "publish_campaign_endpoint_api_v1_admin_campaigns__campaign_id__publish_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignTransitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}/close": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Close campaign registrations",
+        "description": "Transitions OPEN -> CLOSED. Halts all new registrations.",
+        "operationId": "close_campaign_endpoint_api_v1_admin_campaigns__campaign_id__close_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignTransitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}/freeze": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Freeze campaign policy and roster",
+        "description": "Transitions CLOSED -> FROZEN, captures policy snapshot, and locks eligible participant roster.",
+        "operationId": "freeze_campaign_endpoint_api_v1_admin_campaigns__campaign_id__freeze_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeRosterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}/draw": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Execute deterministic uniform lottery draw",
+        "description": "Executes verifiable lottery draw, creates LotteryEntries and Entitlements, and transitions FROZEN -> CLAIMING.",
+        "operationId": "draw_campaign_endpoint_api_v1_admin_campaigns__campaign_id__draw_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LotteryDrawRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotteryDrawResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}/pause": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Pause operational scope",
+        "description": "Pauses ADMISSION, REGISTRATION, or REDEMPTION without altering lifecycle state.",
+        "operationId": "pause_campaign_endpoint_api_v1_admin_campaigns__campaign_id__pause_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/campaigns/{campaign_id}/resume": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Resume operational scope",
+        "description": "Resumes ADMISSION, REGISTRATION, or REDEMPTION.",
+        "operationId": "resume_campaign_endpoint_api_v1_admin_campaigns__campaign_id__resume_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignAdminResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CampaignAdminResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          },
+          "event_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Start"
+          },
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          },
+          "registration_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Registration Start"
+          },
+          "registration_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Registration End"
+          },
+          "redemption_deadline": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Redemption Deadline"
+          },
+          "max_tickets_per_participant": {
+            "type": "integer",
+            "title": "Max Tickets Per Participant"
+          },
+          "allocation_method": {
+            "type": "string",
+            "title": "Allocation Method"
+          },
+          "standby_policy": {
+            "type": "string",
+            "title": "Standby Policy"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "admission_paused": {
+            "type": "boolean",
+            "title": "Admission Paused"
+          },
+          "registration_paused": {
+            "type": "boolean",
+            "title": "Registration Paused"
+          },
+          "redemption_paused": {
+            "type": "boolean",
+            "title": "Redemption Paused"
+          },
+          "policy_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Hash"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "seat_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Seat Counts"
+          },
+          "registration_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Registration Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "venue",
+          "event_start",
+          "capacity",
+          "registration_start",
+          "registration_end",
+          "redemption_deadline",
+          "max_tickets_per_participant",
+          "allocation_method",
+          "standby_policy",
+          "status",
+          "policy_version",
+          "published_at",
+          "admission_paused",
+          "registration_paused",
+          "redemption_paused",
+          "policy_hash",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CampaignAdminResponse",
+        "description": "Full admin representation of a campaign including counts and pauses."
+      },
+      "CampaignCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          },
+          "event_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Start"
+          },
+          "capacity": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Capacity"
+          },
+          "registration_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Registration Start"
+          },
+          "registration_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Registration End"
+          },
+          "redemption_deadline": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Redemption Deadline"
+          },
+          "max_tickets_per_participant": {
+            "type": "integer",
+            "maximum": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Tickets Per Participant",
+            "default": 1
+          },
+          "allocation_method": {
+            "type": "string",
+            "const": "UNIFORM_LOTTERY",
+            "title": "Allocation Method",
+            "default": "UNIFORM_LOTTERY"
+          },
+          "standby_policy": {
+            "type": "string",
+            "const": "FIXED_ORDER",
+            "title": "Standby Policy",
+            "default": "FIXED_ORDER"
+          },
+          "policy_version": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Policy Version",
+            "default": "v1.0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "capacity",
+          "registration_start",
+          "registration_end",
+          "redemption_deadline"
+        ],
+        "title": "CampaignCreateRequest",
+        "description": "Payload for creating a new campaign in DRAFT state."
+      },
+      "CampaignListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CampaignPublicResponse"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta",
+            "description": "Pagination metadata: page, page_size, total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "CampaignListResponse",
+        "description": "Paginated collection of public campaign records."
+      },
+      "CampaignPublicResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          },
+          "event_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Start"
+          },
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          },
+          "registration_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Registration Start"
+          },
+          "registration_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Registration End"
+          },
+          "redemption_deadline": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Redemption Deadline"
+          },
+          "max_tickets_per_participant": {
+            "type": "integer",
+            "title": "Max Tickets Per Participant"
+          },
+          "allocation_method": {
+            "type": "string",
+            "title": "Allocation Method"
+          },
+          "standby_policy": {
+            "type": "string",
+            "title": "Standby Policy"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "venue",
+          "event_start",
+          "capacity",
+          "registration_start",
+          "registration_end",
+          "redemption_deadline",
+          "max_tickets_per_participant",
+          "allocation_method",
+          "standby_policy",
+          "status",
+          "policy_version",
+          "published_at"
+        ],
+        "title": "CampaignPublicResponse",
+        "description": "Public representation of a published campaign."
+      },
+      "CampaignStatusResponse": {
+        "properties": {
+          "campaign": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Campaign"
+          },
+          "participant_state": {
+            "type": "string",
+            "title": "Participant State",
+            "description": "One of: NOT_REGISTERED, REGISTERED, SELECTED, STANDBY, etc."
+          },
+          "registration": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration"
+          },
+          "registration_slice": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Slice"
+          },
+          "admission": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admission"
+          },
+          "challenge": {
+            "type": "null",
+            "title": "Challenge"
+          },
+          "entitlement": {
+            "type": "null",
+            "title": "Entitlement"
+          },
+          "seat_hold": {
+            "type": "null",
+            "title": "Seat Hold"
+          }
+        },
+        "type": "object",
+        "required": [
+          "campaign",
+          "participant_state"
+        ],
+        "title": "CampaignStatusResponse",
+        "description": "Client recovery endpoint response returning server truth for a participant."
+      },
+      "CampaignTransitionResponse": {
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Campaign Id"
+          },
+          "previous_status": {
+            "type": "string",
+            "title": "Previous Status"
+          },
+          "new_status": {
+            "type": "string",
+            "title": "New Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "campaign_id",
+          "previous_status",
+          "new_status",
+          "message",
+          "server_time"
+        ],
+        "title": "CampaignTransitionResponse",
+        "description": "Response returned upon lifecycle state transition."
+      },
+      "CampaignUpdateRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          },
+          "event_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Start"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "registration_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Start"
+          },
+          "registration_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration End"
+          },
+          "redemption_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redemption Deadline"
+          },
+          "max_tickets_per_participant": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tickets Per Participant"
+          },
+          "allocation_method": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "UNIFORM_LOTTERY"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocation Method"
+          },
+          "standby_policy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "FIXED_ORDER"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standby Policy"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          }
+        },
+        "type": "object",
+        "title": "CampaignUpdateRequest",
+        "description": "Payload for updating an existing DRAFT or PREPARING campaign."
+      },
+      "CurrentUserResponse": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/ProfileResponse"
+          },
+          "participant": {
+            "$ref": "#/components/schemas/ParticipantResponse"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Time",
+            "description": "Server timestamp in UTC"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "participant",
+          "server_time"
+        ],
+        "title": "CurrentUserResponse",
+        "description": "Combined response returned by /auth/me representing the authenticated identity."
+      },
+      "FreezeRosterResponse": {
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Campaign Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Updated campaign status (e.g. FROZEN)."
+          },
+          "roster_count": {
+            "type": "integer",
+            "title": "Roster Count",
+            "description": "Total count of eligible accepted registrations locked for draw."
+          },
+          "frozen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Frozen At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "Campaign registration roster successfully frozen."
+          }
+        },
+        "type": "object",
+        "required": [
+          "campaign_id",
+          "status",
+          "roster_count",
+          "frozen_at"
+        ],
+        "title": "FreezeRosterResponse",
+        "description": "Response returned upon freezing campaign registration roster."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "JoinRequest": {
+        "properties": {
+          "client_meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Meta",
+            "description": "Optional client telemetry or environment context."
+          }
+        },
+        "type": "object",
+        "title": "JoinRequest",
+        "description": "Optional payload for requesting an admission permit."
+      },
+      "JoinResponse": {
+        "properties": {
+          "permit_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Permit Id"
+          },
+          "admission_token": {
+            "type": "string",
+            "title": "Admission Token",
+            "description": "Signed cryptographic admission permit token to present on registration."
+          },
+          "nonce": {
+            "type": "string",
+            "title": "Nonce",
+            "description": "Cryptographically secure 32-character single-use nonce."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Campaign Id"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "permit_id",
+          "admission_token",
+          "nonce",
+          "expires_at",
+          "campaign_id",
+          "server_time"
+        ],
+        "title": "JoinResponse",
+        "description": "Response returned upon joining a campaign waiting room."
+      },
+      "LotteryDrawRequest": {
+        "properties": {
+          "randomness_seed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Randomness Seed",
+            "description": "Optional operator-provided 32-char hex seed. Auto-generated via secrets.token_hex(16) if omitted."
+          }
+        },
+        "type": "object",
+        "title": "LotteryDrawRequest",
+        "description": "Optional payload for executing lottery draw."
+      },
+      "LotteryDrawResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Campaign Id"
+          },
+          "seed": {
+            "type": "string",
+            "title": "Seed",
+            "description": "Revealed randomness reference / seed for audit verification."
+          },
+          "seed_hash": {
+            "type": "string",
+            "title": "Seed Hash",
+            "description": "SHA-256 commitment of the seed."
+          },
+          "total_eligible": {
+            "type": "integer",
+            "title": "Total Eligible",
+            "description": "Total participants considered in the draw."
+          },
+          "total_winners": {
+            "type": "integer",
+            "title": "Total Winners",
+            "description": "Total number of winning allocations awarded."
+          },
+          "total_waitlisted": {
+            "type": "integer",
+            "title": "Total Waitlisted",
+            "description": "Total number of non-winning participants waitlisted."
+          },
+          "inventory_cap": {
+            "type": "integer",
+            "title": "Inventory Cap",
+            "description": "Total quota/inventory available."
+          },
+          "executed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Executed At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "Lottery draw executed successfully."
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "campaign_id",
+          "seed",
+          "seed_hash",
+          "total_eligible",
+          "total_winners",
+          "total_waitlisted",
+          "inventory_cap",
+          "executed_at"
+        ],
+        "title": "LotteryDrawResponse",
+        "description": "Authoritative response confirming execution of deterministic uniform lottery draw."
+      },
+      "ParticipantResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Participant UUID"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Account Id",
+            "description": "Linked Profile UUID"
+          },
+          "verification_status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "VERIFIED",
+              "REJECTED"
+            ],
+            "title": "Verification Status",
+            "description": "Fair Drop participant verification status"
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "title": "Risk Level",
+            "description": "Assigned participant risk score level"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Participant record creation timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "verification_status",
+          "risk_level",
+          "created_at"
+        ],
+        "title": "ParticipantResponse",
+        "description": "Participant risk and verification status representation."
+      },
+      "ParticipantResultResponse": {
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Campaign Id"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Participant Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Result status: 'WON', 'WAITLISTED', or 'NOT_REGISTERED'."
+          },
+          "is_winner": {
+            "type": "boolean",
+            "title": "Is Winner",
+            "description": "Whether participant secured a winning allocation."
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank",
+            "description": "Assigned random draw position (1-indexed)."
+          },
+          "entitlement_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Id",
+            "description": "ID of generated entitlement if winner."
+          },
+          "entitlement_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Status",
+            "description": "Status of entitlement (e.g. SELECTED)."
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "Expiration time window for claim/purchase."
+          },
+          "randomness_commitment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Randomness Commitment",
+            "description": "SHA-256 commitment hash of draw seed."
+          },
+          "draw_executed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draw Executed At",
+            "description": "Timestamp when lottery draw was finalized."
+          }
+        },
+        "type": "object",
+        "required": [
+          "campaign_id",
+          "participant_id",
+          "status",
+          "is_winner"
+        ],
+        "title": "ParticipantResultResponse",
+        "description": "Participant query response for lottery outcome and entitlement status."
+      },
+      "PauseRequest": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "ADMISSION",
+              "REGISTRATION",
+              "REDEMPTION"
+            ],
+            "title": "Scope"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "reason"
+        ],
+        "title": "PauseRequest",
+        "description": "Request payload to pause an operational scope."
+      },
+      "ProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Supabase user UUID"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "User display name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ],
+            "title": "Role",
+            "description": "Platform authorization role"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified",
+            "description": "Email verification status"
+          },
+          "phone_verified": {
+            "type": "boolean",
+            "title": "Phone Verified",
+            "description": "Phone verification status"
+          },
+          "institute_verified": {
+            "type": "boolean",
+            "title": "Institute Verified",
+            "description": "Institute verification status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Account creation timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "email_verified",
+          "phone_verified",
+          "institute_verified",
+          "created_at"
+        ],
+        "title": "ProfileResponse",
+        "description": "Public profile representation."
+      },
+      "RegisterRequest": {
+        "properties": {
+          "admission_token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Admission Token",
+            "description": "Signed admission token received from /join."
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 16,
+            "title": "Nonce",
+            "description": "Cryptographic nonce matching the issued admission permit."
+          },
+          "client_meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Meta",
+            "description": "Optional client telemetry/device metadata."
+          }
+        },
+        "type": "object",
+        "required": [
+          "admission_token",
+          "nonce"
+        ],
+        "title": "RegisterRequest",
+        "description": "Payload submitted to complete registration."
+      },
+      "RegisterResponse": {
+        "properties": {
+          "registration_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Registration Id"
+          },
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Campaign Id"
+          },
+          "participant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Participant Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Registration lifecycle status (e.g. REGISTERED).",
+            "default": "REGISTERED"
+          },
+          "registered_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Registered At"
+          },
+          "risk_level": {
+            "type": "string",
+            "title": "Risk Level",
+            "description": "Evaluated risk tier (LOW, MEDIUM, HIGH).",
+            "default": "LOW"
+          },
+          "challenge_required": {
+            "type": "boolean",
+            "title": "Challenge Required",
+            "description": "Whether an additional proof-of-human challenge is required.",
+            "default": false
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable status summary.",
+            "default": "Registration accepted successfully"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registration_id",
+          "campaign_id",
+          "participant_id",
+          "registered_at"
+        ],
+        "title": "RegisterResponse",
+        "description": "Authoritative confirmation of a successfully registered participant entry."
+      },
+      "ResumeRequest": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "ADMISSION",
+              "REGISTRATION",
+              "REDEMPTION"
+            ],
+            "title": "Scope"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope"
+        ],
+        "title": "ResumeRequest",
+        "description": "Request payload to resume an operational scope."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

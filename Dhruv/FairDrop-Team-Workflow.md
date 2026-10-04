@@ -21,7 +21,7 @@ Use one branch per person:
 feature/naman-mediapipe
 feature/rohan-frontend
 feature/dhanya-simulator
-feature/dhruv-fastapi
+dd (or feature/dhruv-fastapi)
 ```
 
 Do not commit directly to `main` except for agreed emergency fixes.
@@ -54,11 +54,11 @@ If a contract changes:
 
 ## Integration sequence
 
-1. Dhruv publishes initial OpenAPI contract and mock server responses.
-2. Rohan builds frontend against the contract.
-3. Dhanya builds simulator against the contract.
-4. Naman publishes challenge result contract and mock mode.
-5. Dhruv integrates challenge adapter.
+1. Dhruv publishes initial OpenAPI contract, DB schema, auth endpoints, and campaign routes. (COMPLETE ✅)
+2. Rohan builds frontend against the contract. (IN PROGRESS)
+3. Dhanya builds simulator against the contract. (IN PROGRESS)
+4. Naman publishes challenge result contract and mock mode. (PENDING)
+5. Dhruv builds registration path with idempotency and challenge seam hook. (IN PROGRESS ⏳ — Step 5)
 6. Dhanya tests challenge/replay behavior through HTTP.
 7. Rohan integrates challenge states.
 8. Whole team runs the demo sequence.

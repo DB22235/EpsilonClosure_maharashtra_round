@@ -1,0 +1,131 @@
+version: "1.0"
+project:
+  name: "fair-drop-frontend"
+  framework: "nextjs-app-router"
+  styling: "tailwind-neobrutalism"
+  type: "static-ui-only"
+
+constraints:
+  - "STRICTLY NO BACKEND: Do not write Python, FastAPI, SQL, or server routes"
+  - "STRICTLY NO REAL AUTH: No @supabase/supabase-js client calls, no real auth providers, no route guards"
+  - "STRICTLY NO ACTIVE API: No fetch(), no axios, no mock API class requests"
+  - "ROUTING ONLY: Use next/link and useRouter for screen transitions"
+  - "MOCK DATA ONLY: Hardcode static mock objects directly inside page components"
+  - "CLEANUP: Remove any existing backend/supabase/api files that cause typescript errors or merge conflicts"
+
+design_system:
+  background: "warm cream (#F7F1E8)"
+  borders: "2px or 3px solid black (#111111)"
+  shadows: "hard offset (4px 4px 0 #111111 / 6px 6px 0 #111111)"
+  accents: ["#FF62B0", "#FFD447", "#24C7B5", "#86A8FF", "#A98BFF", "#39D98A"]
+  typography: "Space Grotesk or display headings, monospace for numbers/timers"
+
+flow_order:
+  1_landing:
+    route: "/"
+    actions:
+      - "[Explore Events] -> /login"
+      - "[Login] -> /login"
+      - "[Sign Up] -> /signup"
+  2_login:
+    route: "/login"
+    actions:
+      - "[Sign In] button -> /events"
+      - "[Don't have account?] -> /signup"
+  3_signup:
+    route: "/signup"
+    actions:
+      - "[Create Account] button -> /verify-email"
+      - "[Already have account?] -> /login"
+  4_verify_email:
+    route: "/verify-email"
+    actions:
+      - "[Continue to Events] button -> /events"
+  5_events:
+    route: "/events"
+    actions:
+      - "Click any card -> /events/camp_demo_001"
+  6_event_detail:
+    route: "/events/[campaignId]"
+    actions:
+      - "[Join Fair Drop] button -> /events/[campaignId]/waiting-room"
+  7_waiting_room:
+    route: "/events/[campaignId]/waiting-room"
+    actions:
+      - "[Continue to Registration] -> /events/[campaignId]/register"
+  8_register:
+    route: "/events/[campaignId]/register"
+    actions:
+      - "[Register] button -> /events/[campaignId]/status"
+  9_status:
+    route: "/events/[campaignId]/status"
+    actions:
+      - "[View Result] button -> /events/[campaignId]/result"
+  10_result:
+    route: "/events/[campaignId]/result"
+    actions:
+      - "[Claim Your Seat] button -> /events/[campaignId]/claim"
+      - "[View Public Audit] link -> /events/[campaignId]/audit"
+  11_claim:
+    route: "/events/[campaignId]/claim"
+    actions:
+      - "[Confirm Booking] button -> /events/[campaignId]/confirmed"
+  12_confirmed:
+    route: "/events/[campaignId]/confirmed"
+    actions:
+      - "[View Fairness Audit] -> /events/[campaignId]/audit"
+      - "[Explore More Events] -> /events"
+  13_audit:
+    route: "/events/[campaignId]/audit"
+    content: "Static statistics (Policy v1.0, 500 winners, 0 oversell, roster hash box)"
+  14_profile:
+    route: "/profile"
+    content: "Static mock user profile"
+  15_admin_suite:
+    routes:
+      - "/admin/login -> [Sign In] -> /admin"
+      - "/admin -> Metrics overview dashboard"
+      - "/admin/campaigns -> Campaigns list table"
+      - "/admin/campaigns/new -> Create Campaign multi-section form"
+      - "/admin/campaigns/[campaignId] -> Tabs linking to /edit, /monitor, /draw, /claims, /audit, /simulations"
+
+screens_spec:
+  landing:
+    path: "app/page.tsx"
+    elements: ["Hero banner", "3 Principles", "Active Preview Grid", "Timeline Flow", "Footer"]
+  login:
+    path: "app/login/page.tsx"
+    elements: ["Form inputs", "Navigation link to /signup", "Submit button linking to /events"]
+  signup:
+    path: "app/signup/page.tsx"
+    elements: ["Form fields", "Checkbox", "Submit linking to /verify-email"]
+  verify_email:
+    path: "app/verify-email/page.tsx"
+    elements: ["Verification icon", "Check email card", "Resend option", "Continue button linking to /events"]
+  events_grid:
+    path: "app/events/page.tsx"
+    elements: ["Category filter row", "Search block", "Mock Cards linking to /events/camp_demo_001"]
+  event_detail:
+    path: "app/events/[campaignId]/page.tsx"
+    elements: ["Sticky Details box", "Lottery parameters grid", "Policy agreement", "Button linking to waiting-room"]
+  waiting_room:
+    path: "app/events/[campaignId]/waiting-room/page.tsx"
+    elements: ["Calm waiting spinner", "Warning labels", "Timer countdown visual", "CTA to register"]
+  register:
+    path: "app/events/[campaignId]/register/page.tsx"
+    elements: ["Identity Summary card", "Policy rules sheet", "Checkboxes", "Button linking to status"]
+  status:
+    path: "app/events/[campaignId]/status/page.tsx"
+    elements: ["Linear progress timeline step chart", "Receipt credentials block", "CTA to result"]
+  result:
+    path: "app/events/[campaignId]/result/page.tsx"
+    elements: ["Confetti success graphic", "Winner claim instructions", "CTA to claim", "Public audit link"]
+  claim:
+    path: "app/events/[campaignId]/claim/page.tsx"
+    elements: ["Mock verification interaction", "Multi-colored visual seats grid layout", "Holding timer countdown", "Confirm button to confirmed"]
+  confirmed:
+    path: "app/events/[campaignId]/confirmed/page.tsx"
+    elements: ["Receipt template layout card", "Security stamps visual stickers", "Return links"]
+  audit:
+    path: "app/events/[campaignId]/audit/page.tsx"
+    elements: ["Verified metrics tables", "Security logs visual charts overview"]

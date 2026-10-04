@@ -1,47 +1,160 @@
-# Environment secrets and credentials (strictly protect keys & envs)
+# ==============================================================================
+# FairDrop Root .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Secrets & Environment Variables (STRICT)
+# ------------------------------------------------------------------------------
 .env
 .env.*
 *.env
 *.env.local
-*.env.production
-*.env.development
+*.env.*.local
 *.key
 *.pem
 *.cert
 *.crt
+*.pfx
+*.p12
+*.asc
 
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
+# Allow example and template environment files
+!.env.example
+!*.env.example
+!.env.template
+!*.env.template
 
-# Python bytecode & caches
+# ------------------------------------------------------------------------------
+# Python & Bytecode Caches
+# ------------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+
+# Python Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & Coverage
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-htmlcov/
+.tox/
+.nox/
 .coverage
 .coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+.hypothesis/
 
-# Packaging
-*.egg-info/
-dist/
-build/
-eggs/
-.eggs/
+# ------------------------------------------------------------------------------
+# Node.js, Next.js & Frontend Caches
+# ------------------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts.bak
 
-# IDE & OS
+# Vercel & v0 sandbox files
+.vercel/
+.snowflake/
+.v0-trash/
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.eslintcache
+
+# Logs
+*.log
+*.log.*
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# Large Archives & Compressed Files (DO NOT PUSH TO GITHUB)
+# ------------------------------------------------------------------------------
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.bz2
+*.xz
+*.iso
+*.dmg
+
+# ------------------------------------------------------------------------------
+# Databases & Local Storage
+# ------------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ------------------------------------------------------------------------------
+# IDE, Editors & OS Files
+# ------------------------------------------------------------------------------
 .vscode/
 .idea/
-.DS_Store
-Thumbs.db
+*.sublime-project
+*.sublime-workspace
 *.swp
 *.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+ehthumbs_vista.db
+Thumbs.db
+Thumbs.db:encryptable
+[Dd]esktop.ini
 
-# Local runner shims
+# ------------------------------------------------------------------------------
+# Local Runner Shims & Agent Scratch Artifacts
+# ------------------------------------------------------------------------------
 powershell.cmd
+**/powershell.cmd
+scratch/
+**/scratch/
+.agents/
+.gemini/
