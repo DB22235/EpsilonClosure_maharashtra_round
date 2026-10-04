@@ -197,6 +197,8 @@ class MetricsCollector:
     def _profile_breakdown(self, records: List[Record]) -> Dict[str, Dict[str, Any]]:
         """Compute per-profile-type participation, fairness, and reliability stats."""
         breakdown: Dict[str, Dict[str, Any]] = {}
+        valid_ids: Dict[str, set] = {}
+        winner_ids: Dict[str, set] = {}
         for rec in records:
             pt = rec.profile_type
             if pt not in breakdown:
@@ -212,12 +214,14 @@ class MetricsCollector:
                     "timeouts": 0,
                     "latencies_ms": [],
                 }
+                valid_ids[pt] = set()
+                winner_ids[pt] = set()
             b = breakdown[pt]
             b["total_requests"] += 1
             if rec.is_valid_entry:
-                b["valid_entries"] += 1
+                valid_ids[pt].add(rec.identity_id)
             if rec.is_winner:
-                b["winners"] += 1
+                winner_ids[pt].add(rec.identity_id)
             if rec.outcome == "RATE_LIMITED":
                 b["rate_limited"] += 1
             elif rec.outcome == "CONFLICT":
@@ -230,7 +234,9 @@ class MetricsCollector:
                 b["latencies_ms"].append(rec.latency_ms)
 
         # Post-process: derive rates and remove raw latency list
-        for b in breakdown.values():
+        for pt, b in breakdown.items():
+            b["valid_entries"] = len(valid_ids.get(pt, set()))
+            b["winners"] = len(winner_ids.get(pt, set()))
             lats = b.pop("latencies_ms")
             b["p50_ms"] = self._percentile(lats, 50)
             b["p95_ms"] = self._percentile(lats, 95)
@@ -272,9 +278,10 @@ class MetricsCollector:
         throughput_rps = round(total / elapsed, 2) if elapsed > 0 else 0.0
 
         valid_entries = [r for r in records if r.is_valid_entry]
-        winners = [r for r in records if r.is_winner]
+        winner_identities = {r.identity_id for r in records if r.is_winner}
         rate_limited = [r for r in records if r.outcome == "RATE_LIMITED"]
-        confirmed_seats = len(winners)
+        confirmed_seats = len(winner_identities)
+        winners = [r for r in records if r.is_winner]
 
         lats = self._latencies(records)
         all_unique_ids = {r.identity_id for r in records}

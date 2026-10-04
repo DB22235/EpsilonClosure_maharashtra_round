@@ -102,6 +102,19 @@ class BaseProfile(ABC):
             outcome = metadata.get("error_type", "NETWORK_ERROR")
             error_code = metadata.get("error_code", "CONNECTION_TIMEOUT")
 
+        is_winner = False
+        is_valid_entry = False
+        endpoint = metadata.get("endpoint", "")
+        if response is not None and outcome == "SUCCESS":
+            try:
+                payload = response.json()
+                if isinstance(payload, dict):
+                    is_winner = bool(payload.get("is_winner"))
+            except Exception:
+                pass
+            if "/register" in endpoint or "/join" in endpoint:
+                is_valid_entry = True
+
         record = {
             "request_id": metadata.get("request_id") or str(uuid.uuid4()),
             "client_class": self.profile_type,
@@ -113,8 +126,10 @@ class BaseProfile(ABC):
             "end_time": metadata.get("end_time", time.time()),
             "retry_number": metadata.get("retry_number", 0),
             "outcome": outcome,
-            "endpoint": metadata.get("endpoint", ""),
+            "endpoint": endpoint,
             "method": metadata.get("method", "GET"),
+            "is_winner": is_winner,
+            "is_valid_entry": is_valid_entry,
         }
         self.results.append(record)
         return record

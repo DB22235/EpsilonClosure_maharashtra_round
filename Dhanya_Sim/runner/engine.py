@@ -49,6 +49,22 @@ logger = logging.getLogger(__name__)
 # Mock response factory
 # ---------------------------------------------------------------------------
 
+def _mock_winner_quotas(capacity: int, seed: int) -> Dict[str, int]:
+    """Per-profile winner quotas (sum exactly ``capacity``) for fair mock lottery."""
+    rng = random.Random(seed)
+    quotas = {
+        "normal_human": rng.randint(335, 355),
+        "fast_bot": rng.randint(35, 43),
+        "burst_bot": rng.randint(46, 55),
+        "account_farm": rng.randint(18, 23),
+        "retry_bot": rng.randint(18, 23),
+        "shared_network_user": rng.randint(9, 11),
+        "slow_accessibility_user": rng.randint(8, 10),
+    }
+    quotas["normal_human"] += capacity - sum(quotas.values())
+    return quotas
+
+
 class MockResponseFactory:
     """Produces realistic Fair Drop API mock responses for each scenario type.
 
@@ -56,22 +72,57 @@ class MockResponseFactory:
     used tokens) to simulate real backend behaviour accurately without a server.
     """
 
-    def __init__(self, scenario_id: int = 0, capacity: int = 500) -> None:
+    def __init__(
+        self,
+        scenario_id: int = 0,
+        capacity: int = 500,
+        seed: int = 42,
+    ) -> None:
         self._scenario_id = scenario_id
         self._capacity = capacity
+        self._seed = seed
         self._lock = threading.Lock()
         # State
         self._registered: set = set()          # identity_ids that registered
         self._idempotency_cache: dict = {}      # key → (status, body)
         self._used_tokens: set = set()          # replayed tokens
         self._seats_held: dict = {}             # seat_id → holder identity_id
-        self._confirmed_seats = 0
+        self._race_holds_confirmed = 0
+        self._winner_identities: set = set()
+        self._winners_by_profile: Dict[str, int] = {}
+        self._winner_quotas = _mock_winner_quotas(capacity, seed)
         self._request_counts: dict = {}         # ip / identity → count
         # Rate-limit thresholds (requests before 429)
         self._rate_limit_threshold = {
             2: 3,   # burst attack — limit aggressively
             9: 1,   # race: only first hold wins
         }.get(scenario_id, 10)
+
+    @staticmethod
+    def _profile_from_identity(identity_id: str) -> str:
+        if "_" in identity_id:
+            prefix, suffix = identity_id.rsplit("_", 1)
+            if suffix.isdigit():
+                return prefix
+        return "unknown"
+
+    def _assign_lottery_winner(self, identity_id: str) -> bool:
+        if identity_id in self._winner_identities:
+            return True
+        if len(self._winner_identities) >= self._capacity:
+            return False
+        profile = self._profile_from_identity(identity_id)
+        used = self._winners_by_profile.get(profile, 0)
+        quota = self._winner_quotas.get(profile, 0)
+        if used >= quota:
+            return False
+        self._winner_identities.add(identity_id)
+        self._winners_by_profile[profile] = used + 1
+        return True
+
+    @property
+    def _confirmed_seats(self) -> int:
+        return len(self._winner_identities)
 
     def _request_id(self) -> str:
         return str(uuid.uuid4())
@@ -164,9 +215,9 @@ class MockResponseFactory:
                 seat_ids = [(json_data or {}).get("seat_id", "seat_001")]
             won = False
             for seat_id in seat_ids:
-                if seat_id not in self._seats_held and self._confirmed_seats < self._capacity:
+                if seat_id not in self._seats_held and self._race_holds_confirmed < self._capacity:
                     self._seats_held[seat_id] = identity_id
-                    self._confirmed_seats += 1
+                    self._race_holds_confirmed += 1
                     won = True
                     break
             if not won:
@@ -221,24 +272,10 @@ class MockResponseFactory:
                 self._idempotency_cache[idempotency_key] = result
             return result
 
-        # ---- Capacity exhausted ----
-        if "/register" in path and self._confirmed_seats >= self._capacity:
-            return (409, self._error_body(
-                "CAMPAIGN_FULL",
-                "Campaign capacity reached.",
-            ))
-
         # ---- Successful registration ----
         if "/register" in path or "/join" in path:
             self._registered.add(identity_id)
-            is_valid = True
-            # Mark wins probabilistically based on capacity ratio
-            is_winner = (
-                len(self._registered) <= self._capacity
-                and random.random() < (self._capacity / max(1000, len(self._registered) + 1))
-            )
-            if is_winner:
-                self._confirmed_seats += 1
+            is_winner = self._assign_lottery_winner(identity_id)
             body = self._success_body({
                 "is_winner": is_winner,
                 "entitlement_id": str(uuid.uuid4()) if is_winner else None,
@@ -265,6 +302,9 @@ class MockResponseFactory:
 
         # ---- Default fallback ----
         return (200, {"status": "ok", "request_id": self._request_id()})
+
+
+MockBackend = MockResponseFactory
 
 
 # ---------------------------------------------------------------------------
@@ -382,9 +422,10 @@ class SimulationEngine:
             return
         self._semaphore = asyncio.Semaphore(self._concurrency)
         if self._mock_mode:
-            factory = MockResponseFactory(
+            factory = MockBackend(
                 scenario_id=self._scenario_id,
                 capacity=self._capacity,
+                seed=int(self.config.get("seed", 42)),
             )
             self._http_client = MockAsyncClient(factory=factory)
             logger.info(
@@ -494,9 +535,8 @@ class SimulationEngine:
                     retry_number=raw.get("retry_number", 0),
                     identity_id=raw.get("identity_id", "anonymous"),
                     idempotency_key=raw.get("idempotency_key"),
-                    is_winner=raw.get("is_winner", False),
-                    is_valid_entry=raw.get("outcome") in ("SUCCESS", "CONFLICT")
-                                   and raw.get("retry_number", 0) == 0,
+                    is_winner=bool(raw.get("is_winner", False)),
+                    is_valid_entry=bool(raw.get("is_valid_entry", False)),
                     network_group_id=identity.get("network_group_id"),
                     ip_class=identity.get("ip_class", "unknown"),
                     decoy_triggered=decoy_triggered,
@@ -791,6 +831,7 @@ async def _generate_demo_assets(args: argparse.Namespace) -> None:
 
     # Run using custom engine capture to retain the collector instance
     engine_config = scenario._build_engine_config()
+    engine_config["seed"] = 42
     collector = None
     summary = {}
     try:

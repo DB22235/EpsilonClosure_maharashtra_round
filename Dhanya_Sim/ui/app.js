@@ -58,13 +58,13 @@ function renderFairnessChart(data) {
   const container = document.getElementById('fairnessChart');
   container.innerHTML = '';
 
-  // Find max selection rate for scaling bars
-  const maxRate = Math.max(...chart.selection_rate_pct, 1.5);
+  const rates = chart.selection_rate_pct.map(r => Number(r) || 0);
+  const maxRate = Math.max(...rates, 1.2);
 
   chart.labels.forEach((label, i) => {
     const isHuman = HUMAN_PROFILES.some(h => label.includes(h));
-    const rate = chart.selection_rate_pct[i];
-    const widthPct = (rate / maxRate) * 100;
+    const rate = rates[i];
+    const widthPct = Math.min(100, (rate / maxRate) * 100);
 
     const row = document.createElement('div');
     row.className = 'bar-row fade-in';
