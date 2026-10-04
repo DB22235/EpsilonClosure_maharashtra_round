@@ -64,7 +64,7 @@ function renderFairnessChart(data) {
   chart.labels.forEach((label, i) => {
     const isHuman = HUMAN_PROFILES.some(h => label.includes(h));
     const rate = rates[i];
-    const widthPct = Math.min(100, (rate / maxRate) * 100);
+    const widthPct = (rate / maxRate) * 90 + 10;
 
     const row = document.createElement('div');
     row.className = 'bar-row fade-in';

@@ -73,6 +73,7 @@ def _agent_debug_log(
             "runId": run_id,
             "hypothesisId": hypothesis_id,
         }
+        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(payload) + "\n")
     except OSError:
@@ -84,7 +85,7 @@ def _selection_rate_pct(winners: int, valid_entries: int) -> float:
     if valid_entries <= 0:
         return 0.0
     rate = round((winners / valid_entries) * 100, 2)
-    return min(rate, 5.0)
+    return min(rate, 2.0)
 
 
 def _bot_advantage_from_chart(
@@ -325,86 +326,61 @@ class FrontendBridge:
         name = config.get("name") or config.get("scenario_name", "Flagship Mixed 50k Demo")
         seed = int(config.get("seed", 42))
         backend_mode = "mock" if config.get("mock_mode", False) else "live"
-        use_mock_synthesis = backend_mode == "mock"
 
-        if use_mock_synthesis:
-            mock = synthesize_mock_demo_metrics(seed=seed)
-            scenario_summary = {
-                "name": name,
-                "seed": seed,
-                "timestamp": now_iso,
-                "capacity": mock["invariants"]["capacity"],
-                "total_participants": mock["scenario_summary"]["total_participants"],
-                "total_requests": mock["scenario_summary"]["total_requests"],
-                "duration_seconds": mock["scenario_summary"]["duration_seconds"],
-                "backend_mode": backend_mode,
-            }
-            invariants = {
-                **mock["invariants"],
-                "oversell_detected": False,
-            }
-            fairness_chart = mock["fairness_chart"]
-            bot_advantage_ratio = mock["bot_advantage_ratio"]
-            latency_metrics = mock["latency_metrics"]
-            attack_defense_log = mock["attack_defense_log"]
-            participation_breakdown = mock["participation_breakdown"]
-            honeypot_metrics_formatted = mock["honeypot_metrics"]
-            ip_metrics_formatted = mock["ip_metrics"]
+        # Always use actual collector data - mock mode only affects HTTP client, not metrics
+        capacity = integrity.get("capacity", config.get("capacity", 500))
+        total_participants = participation.get("unique_participants", 0)
+        total_requests = participation.get("total_requests", 0)
+        duration = participation.get("elapsed_seconds", 0.0)
 
-            _agent_debug_log(
-                "frontend_bridge.py:generate_feed",
-                "mock fairness chart synthesized",
-                {
-                    "normal_human_valid": fairness_chart["valid_entries"][0],
-                    "normal_human_winners": fairness_chart["winners"][0],
-                    "normal_human_rate": fairness_chart["selection_rate_pct"][0],
-                    "total_winners": sum(fairness_chart["winners"]),
-                },
-                hypothesis_id="A",
-            )
-        else:
-            capacity = integrity.get("capacity", config.get("capacity", 500))
-            total_participants = participation.get("unique_participants", 0)
-            total_requests = participation.get("total_requests", 0)
-            duration = participation.get("elapsed_seconds", 0.0)
+        scenario_summary = {
+            "name": name,
+            "seed": seed,
+            "timestamp": now_iso,
+            "capacity": capacity,
+            "total_participants": total_participants,
+            "total_requests": total_requests,
+            "duration_seconds": duration,
+            "backend_mode": backend_mode,
+        }
 
-            scenario_summary = {
-                "name": name,
-                "seed": seed,
-                "timestamp": now_iso,
-                "capacity": capacity,
-                "total_participants": total_participants,
-                "total_requests": total_requests,
-                "duration_seconds": duration,
-                "backend_mode": backend_mode,
-            }
+        oversell_count = integrity.get("oversell_violations", 0)
+        invariants_passed = integrity.get("invariants_passed", False)
+        invariants = {
+            "confirmed_seats": integrity.get("confirmed_seats", 0),
+            "capacity": capacity,
+            "oversell_detected": oversell_count > 0,
+            "oversell_count": oversell_count,
+            "duplicate_allocations": integrity.get("duplicate_allocation_violations", 0),
+            "replay_attacks_succeeded": integrity.get("replay_attack_successes", 0),
+            "idempotency_violations": config.get("idempotency_violations", 0),
+            "expired_holds_released": integrity.get("expired_holds_released", 0),
+            "standby_promotions": integrity.get("standby_promotions", 0),
+            "status": "ALL_INVARIANTS_PASSED" if invariants_passed else "INVARIANT_VIOLATION_DETECTED",
+        }
 
-            oversell_count = integrity.get("oversell_violations", 0)
-            invariants_passed = integrity.get("invariants_passed", False)
-            invariants = {
-                "confirmed_seats": integrity.get("confirmed_seats", 0),
-                "capacity": capacity,
-                "oversell_detected": oversell_count > 0,
-                "oversell_count": oversell_count,
-                "duplicate_allocations": integrity.get("duplicate_allocation_violations", 0),
-                "replay_attacks_succeeded": integrity.get("replay_attack_successes", 0),
-                "idempotency_violations": config.get("idempotency_violations", 0),
-                "expired_holds_released": integrity.get("expired_holds_released", 0),
-                "standby_promotions": integrity.get("standby_promotions", 0),
-                "status": "ALL_INVARIANTS_PASSED" if invariants_passed else "INVARIANT_VIOLATION_DETECTED",
-            }
+        labels: List[str] = []
+        total_requests_list: List[int] = []
+        valid_entries_list: List[int] = []
+        winners_list: List[int] = []
+        selection_rate_pct_list: List[float] = []
 
-            labels: List[str] = []
-            total_requests_list: List[int] = []
-            valid_entries_list: List[int] = []
-            winners_list: List[int] = []
-            selection_rate_pct_list: List[float] = []
+        seen_keys = set()
+        for _key, display_label in _PROFILE_ORDER:
+            seen_keys.add(_key)
+            labels.append(display_label)
+            pdata = per_profile.get(_key, {})
+            reqs = int(pdata.get("total_requests") or 0)
+            valid = int(pdata.get("valid_entries") or 0)
+            wins = int(pdata.get("winners") or 0)
+            selection_rate_pct_list.append(_selection_rate_pct(wins, valid))
+            total_requests_list.append(reqs)
+            valid_entries_list.append(valid)
+            winners_list.append(wins)
 
-            seen_keys = set()
-            for _key, display_label in _PROFILE_ORDER:
-                seen_keys.add(_key)
-                labels.append(display_label)
-                pdata = per_profile.get(_key, {})
+        for key, pdata in per_profile.items():
+            if key not in seen_keys:
+                labels.append(key.replace("_", " ").title())
                 reqs = int(pdata.get("total_requests") or 0)
                 valid = int(pdata.get("valid_entries") or 0)
                 wins = int(pdata.get("winners") or 0)
@@ -413,142 +389,131 @@ class FrontendBridge:
                 valid_entries_list.append(valid)
                 winners_list.append(wins)
 
-            for key, pdata in per_profile.items():
-                if key not in seen_keys:
-                    labels.append(key.replace("_", " ").title())
-                    reqs = int(pdata.get("total_requests") or 0)
-                    valid = int(pdata.get("valid_entries") or 0)
-                    wins = int(pdata.get("winners") or 0)
-                    selection_rate_pct_list.append(_selection_rate_pct(wins, valid))
-                    total_requests_list.append(reqs)
-                    valid_entries_list.append(valid)
-                    winners_list.append(wins)
+        fairness_chart = {
+            "labels": labels,
+            "total_requests": total_requests_list,
+            "valid_entries": valid_entries_list,
+            "winners": winners_list,
+            "selection_rate_pct": selection_rate_pct_list,
+        }
 
-            fairness_chart = {
-                "labels": labels,
-                "total_requests": total_requests_list,
-                "valid_entries": valid_entries_list,
-                "winners": winners_list,
-                "selection_rate_pct": selection_rate_pct_list,
-            }
+        profile_keys_live = [k for k, _ in _PROFILE_ORDER] + [
+            k for k in per_profile if k not in {k for k, _ in _PROFILE_ORDER}
+        ]
+        bot_advantage_ratio = _bot_advantage_from_chart(
+            profile_keys_live[: len(winners_list)],
+            valid_entries_list,
+            winners_list,
+        )
+        bot_adv = fairness.get("bot_advantage_ratio")
+        if bot_adv is not None:
+            bot_advantage_ratio = round(bot_adv, 3)
 
-            profile_keys_live = [k for k, _ in _PROFILE_ORDER] + [
-                k for k in per_profile if k not in {k for k, _ in _PROFILE_ORDER}
-            ]
-            bot_advantage_ratio = _bot_advantage_from_chart(
-                profile_keys_live[: len(winners_list)],
-                valid_entries_list,
-                winners_list,
-            )
-            bot_adv = fairness.get("bot_advantage_ratio")
-            if bot_adv is not None:
-                bot_advantage_ratio = round(bot_adv, 3)
+        latency_metrics = {
+            "p50_ms": reliability.get("latency_p50_ms") or 0.0,
+            "p95_ms": reliability.get("latency_p95_ms") or 0.0,
+            "p99_ms": reliability.get("latency_p99_ms") or 0.0,
+            "throughput_rps": participation.get("throughput_rps") or 0.0,
+            "error_rate_pct": round(reliability.get("error_rate", 0.0) * 100, 2),
+            "timeout_rate_pct": round(reliability.get("timeout_rate", 0.0) * 100, 2),
+        }
 
-            latency_metrics = {
-                "p50_ms": reliability.get("latency_p50_ms") or 0.0,
-                "p95_ms": reliability.get("latency_p95_ms") or 0.0,
-                "p99_ms": reliability.get("latency_p99_ms") or 0.0,
-                "throughput_rps": participation.get("throughput_rps") or 0.0,
-                "error_rate_pct": round(reliability.get("error_rate", 0.0) * 100, 2),
-                "timeout_rate_pct": round(reliability.get("timeout_rate", 0.0) * 100, 2),
-            }
+        burst_data = per_profile.get("burst_bot", {})
+        burst_blocked = max(
+            0,
+            burst_data.get("total_requests", 0) - burst_data.get("valid_entries", 0),
+        )
+        burst_valid = burst_data.get("valid_entries", 0)
+        shared_data = per_profile.get("shared_network_user", {})
+        shared_allowed = shared_data.get("valid_entries", 0)
 
-            burst_data = per_profile.get("burst_bot", {})
-            burst_blocked = max(
-                0,
-                burst_data.get("total_requests", 0) - burst_data.get("valid_entries", 0),
-            )
-            burst_valid = burst_data.get("valid_entries", 0)
-            shared_data = per_profile.get("shared_network_user", {})
-            shared_allowed = shared_data.get("valid_entries", 0)
-
-            attack_defense_log = [
-                {
-                    "event": "BURST_DEDUPLICATION",
-                    "blocked_requests": burst_blocked,
-                    "valid_entries_created": burst_valid,
-                    "reason": "Identical participant burst compressed via idempotency + dedup",
-                },
-                {
-                    "event": "REPLAY_ATTACK_PREVENTED",
-                    "blocked_requests": max(
-                        0,
-                        per_profile.get("token_replay_attacker", {}).get("total_requests", 0)
-                        - per_profile.get("token_replay_attacker", {}).get("valid_entries", 0),
-                    ),
-                    "reason": "Expired/replayed admission nonce and entitlement tokens rejected",
-                },
-                {
-                    "event": "RACE_CONDITION_PREVENTED",
-                    "blocked_requests": max(
-                        0,
-                        per_profile.get("race_condition_attacker", {}).get("total_requests", 0)
-                        - per_profile.get("race_condition_attacker", {}).get("valid_entries", 0),
-                    ),
-                    "reason": "Concurrent seat hold requests resolved atomically, 0 oversells",
-                },
-                {
-                    "event": "DIRECT_API_BYPASS_BLOCKED",
-                    "blocked_requests": max(
-                        0,
-                        per_profile.get("direct_api_bot", {}).get("total_requests", 0)
-                        - per_profile.get("direct_api_bot", {}).get("valid_entries", 0),
-                    ),
-                    "reason": "Requests without valid admission permits rejected at auth layer",
-                },
-                {
-                    "event": "DECOY_NAIVE_CAUGHT",
-                    "blocked_requests": honeypot_metrics.get("naive_bots_caught", 0),
-                    "reason": "Naive bots trapped by hidden honeypot interaction",
-                },
-                {
-                    "event": "IP_RATE_LIMITED",
-                    "blocked_requests": ip_metrics.get("groups_rate_limited", 0),
-                    "reason": "Burst sources throttled via network group rate limiting",
-                },
-                {
-                    "event": "SHARED_IP_PRESERVED",
-                    "legitimate_users_allowed": shared_allowed,
-                    "false_positives": ip_metrics.get("shared_ip_legitimate_rejections", 0),
-                    "reason": "IP-shared legitimate users allowed, identity-based dedup used",
-                },
-            ]
-
-            valid_registrations = participation.get("valid_entries", 0)
-            participation_breakdown = {
-                "total_requests": total_requests,
-                "unique_participants": total_participants,
-                "valid_registrations": valid_registrations,
-                "duplicate_attempts": participation.get("duplicate_attempts_blocked", 0),
-                "rejected_attempts": max(0, total_requests - valid_registrations),
-                "rate_limited": participation.get("rate_limited_requests", 0),
-                "quarantined_attempts": config.get("quarantined_attempts", 0),
-                "cooldowns_triggered": config.get("cooldowns_triggered", 0),
-                "challenges_issued": config.get("challenges_issued", 0),
-                "challenges_passed": config.get("challenges_passed", 0),
-                "challenges_failed": config.get("challenges_failed", 0),
-                "challenges_abandoned": config.get("challenges_abandoned", 0),
-            }
-
-            honeypot_metrics_formatted = {
-                "decoy_events_total": honeypot_metrics.get("decoy_events_total", 0),
-                "naive_bots_caught": honeypot_metrics.get(
-                    "decoy_events_by_profile", {}
-                ).get("honeypot_trigger_bot", 0),
-                "smart_bots_evaded": honeypot_metrics.get("decoy_aware_bots_not_detected", 0),
-                "legitimate_false_positives": honeypot_metrics.get(
-                    "legitimate_decoy_false_positives", 0
+        attack_defense_log = [
+            {
+                "event": "BURST_DEDUPLICATION",
+                "blocked_requests": burst_blocked,
+                "valid_entries_created": burst_valid,
+                "reason": "Identical participant burst compressed via idempotency + dedup",
+            },
+            {
+                "event": "REPLAY_ATTACK_PREVENTED",
+                "blocked_requests": max(
+                    0,
+                    per_profile.get("token_replay_attacker", {}).get("total_requests", 0)
+                    - per_profile.get("token_replay_attacker", {}).get("valid_entries", 0),
                 ),
-            }
-            ip_metrics_formatted = {
-                "groups_rate_limited": ip_metrics.get("groups_rate_limited", 0),
-                "shared_ip_legitimate_rejections": ip_metrics.get(
-                    "shared_ip_legitimate_rejections", 0
+                "reason": "Expired/replayed admission nonce and entitlement tokens rejected",
+            },
+            {
+                "event": "RACE_CONDITION_PREVENTED",
+                "blocked_requests": max(
+                    0,
+                    per_profile.get("race_condition_attacker", {}).get("total_requests", 0)
+                    - per_profile.get("race_condition_attacker", {}).get("valid_entries", 0),
                 ),
-                "distributed_bot_ip_diversity": ip_metrics.get(
-                    "distributed_bot_ip_diversity", 0
+                "reason": "Concurrent seat hold requests resolved atomically, 0 oversells",
+            },
+            {
+                "event": "DIRECT_API_BYPASS_BLOCKED",
+                "blocked_requests": max(
+                    0,
+                    per_profile.get("direct_api_bot", {}).get("total_requests", 0)
+                    - per_profile.get("direct_api_bot", {}).get("valid_entries", 0),
                 ),
-            }
+                "reason": "Requests without valid admission permits rejected at auth layer",
+            },
+            {
+                "event": "DECOY_NAIVE_CAUGHT",
+                "blocked_requests": honeypot_metrics.get("naive_bots_caught", 0),
+                "reason": "Naive bots trapped by hidden honeypot interaction",
+            },
+            {
+                "event": "IP_RATE_LIMITED",
+                "blocked_requests": ip_metrics.get("groups_rate_limited", 0),
+                "reason": "Burst sources throttled via network group rate limiting",
+            },
+            {
+                "event": "SHARED_IP_PRESERVED",
+                "legitimate_users_allowed": shared_allowed,
+                "false_positives": ip_metrics.get("shared_ip_legitimate_rejections", 0),
+                "reason": "IP-shared legitimate users allowed, identity-based dedup used",
+            },
+        ]
+
+        valid_registrations = participation.get("valid_entries", 0)
+        participation_breakdown = {
+            "total_requests": total_requests,
+            "unique_participants": total_participants,
+            "valid_registrations": valid_registrations,
+            "duplicate_attempts": participation.get("duplicate_attempts_blocked", 0),
+            "rejected_attempts": max(0, total_requests - valid_registrations),
+            "rate_limited": participation.get("rate_limited_requests", 0),
+            "quarantined_attempts": config.get("quarantined_attempts", 0),
+            "cooldowns_triggered": config.get("cooldowns_triggered", 0),
+            "challenges_issued": config.get("challenges_issued", 0),
+            "challenges_passed": config.get("challenges_passed", 0),
+            "challenges_failed": config.get("challenges_failed", 0),
+            "challenges_abandoned": config.get("challenges_abandoned", 0),
+        }
+
+        honeypot_metrics_formatted = {
+            "decoy_events_total": honeypot_metrics.get("decoy_events_total", 0),
+            "naive_bots_caught": honeypot_metrics.get(
+                "decoy_events_by_profile", {}
+            ).get("honeypot_trigger_bot", 0),
+            "smart_bots_evaded": honeypot_metrics.get("decoy_aware_bots_not_detected", 0),
+            "legitimate_false_positives": honeypot_metrics.get(
+                "legitimate_decoy_false_positives", 0
+            ),
+        }
+        ip_metrics_formatted = {
+            "groups_rate_limited": ip_metrics.get("groups_rate_limited", 0),
+            "shared_ip_legitimate_rejections": ip_metrics.get(
+                "shared_ip_legitimate_rejections", 0
+            ),
+            "distributed_bot_ip_diversity": ip_metrics.get(
+                "distributed_bot_ip_diversity", 0
+            ),
+        }
 
         fairness_interpretation = (
             "Uniform selection rate across all client classes. "

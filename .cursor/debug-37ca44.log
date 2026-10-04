@@ -1,0 +1,1 @@
+{"sessionId": "37ca44", "id": "log_A_frontend_bridge.py:generate_feed", "timestamp": 1791085233655, "location": "frontend_bridge.py:generate_feed", "message": "mock fairness chart synthesized", "data": {"normal_human_valid": 33228, "normal_human_winners": 351, "normal_human_rate": 1.06, "total_winners": 500}, "runId": "pre-fix", "hypothesisId": "A"}

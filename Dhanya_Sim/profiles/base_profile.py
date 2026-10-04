@@ -165,6 +165,8 @@ class BaseProfile(ABC):
             req_headers["Idempotency-Key"] = idempotency_key
         if "X-Request-ID" not in req_headers:
             req_headers["X-Request-ID"] = str(uuid.uuid4())
+        if "X-Identity-ID" not in req_headers:
+            req_headers["X-Identity-ID"] = identity_id
 
         url = f"{self.base_url}{path}"
         start_time = time.time()

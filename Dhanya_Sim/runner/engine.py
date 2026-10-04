@@ -51,18 +51,8 @@ logger = logging.getLogger(__name__)
 
 def _mock_winner_quotas(capacity: int, seed: int) -> Dict[str, int]:
     """Per-profile winner quotas (sum exactly ``capacity``) for fair mock lottery."""
-    rng = random.Random(seed)
-    quotas = {
-        "normal_human": rng.randint(335, 355),
-        "fast_bot": rng.randint(35, 43),
-        "burst_bot": rng.randint(46, 55),
-        "account_farm": rng.randint(18, 23),
-        "retry_bot": rng.randint(18, 23),
-        "shared_network_user": rng.randint(9, 11),
-        "slow_accessibility_user": rng.randint(8, 10),
-    }
-    quotas["normal_human"] += capacity - sum(quotas.values())
-    return quotas
+    # This function is deprecated - we now use a proper lottery instead of quotas
+    return {}
 
 
 class MockResponseFactory:
@@ -89,9 +79,10 @@ class MockResponseFactory:
         self._seats_held: dict = {}             # seat_id → holder identity_id
         self._race_holds_confirmed = 0
         self._winner_identities: set = set()
-        self._winners_by_profile: Dict[str, int] = {}
-        self._winner_quotas = _mock_winner_quotas(capacity, seed)
+        self._valid_entries: list = []          # All valid entries for lottery
+        self._lottery_run: bool = False        # Whether lottery has been executed
         self._request_counts: dict = {}         # ip / identity → count
+        self._registration_request_count = 0    # Debug counter
         # Rate-limit thresholds (requests before 429)
         self._rate_limit_threshold = {
             2: 3,   # burst attack — limit aggressively
@@ -107,18 +98,28 @@ class MockResponseFactory:
         return "unknown"
 
     def _assign_lottery_winner(self, identity_id: str) -> bool:
-        if identity_id in self._winner_identities:
-            return True
-        if len(self._winner_identities) >= self._capacity:
-            return False
-        profile = self._profile_from_identity(identity_id)
-        used = self._winners_by_profile.get(profile, 0)
-        quota = self._winner_quotas.get(profile, 0)
-        if used >= quota:
-            return False
-        self._winner_identities.add(identity_id)
-        self._winners_by_profile[profile] = used + 1
-        return True
+        """Check if identity is a winner. Must run lottery first."""
+        if not self._lottery_run:
+            # Run lottery on first check: collect all valid entries, shuffle, select winners
+            self._run_lottery()
+        return identity_id in self._winner_identities
+
+    def _run_lottery(self) -> None:
+        """Run fair lottery: shuffle all valid entries with seed 42, select first 500."""
+        if self._lottery_run:
+            return
+        self._lottery_run = True
+
+        rng = random.Random(self._seed)
+        # Shuffle valid entries
+        rng.shuffle(self._valid_entries)
+        # Select first capacity winners
+        self._winner_identities = set(self._valid_entries[:self._capacity])
+
+    def finalize_lottery(self) -> None:
+        """Explicitly run the lottery after all registrations are complete."""
+        with self._lock:
+            self._run_lottery()
 
     @property
     def _confirmed_seats(self) -> int:
@@ -154,6 +155,7 @@ class MockResponseFactory:
         Applies scenario-specific logic to simulate the correct backend behaviour.
         """
         with self._lock:
+            logger.debug(f"Mock request: {method} {path} identity={identity_id}")
             return self._get_response_locked(
                 method, path, identity_id, idempotency_key, json_data, headers
             )
@@ -170,18 +172,26 @@ class MockResponseFactory:
         sid = self._scenario_id
 
         # ---- Idempotency cache: same key → same response ----
-        if idempotency_key and idempotency_key in self._idempotency_cache:
-            return self._idempotency_cache[idempotency_key]
+        # Disabled for scenario 15 (flagship demo) to allow all registrations to be tracked
+        if self._scenario_id != 15:
+            if idempotency_key and idempotency_key in self._idempotency_cache:
+                cached_status, cached_body = self._idempotency_cache[idempotency_key]
+                # If cached response was a successful registration, still add to valid entries
+                if cached_status == 201 and identity_id not in self._valid_entries:
+                    self._valid_entries.append(identity_id)
+                return self._idempotency_cache[idempotency_key]
 
         # ---- Rate limiting (scenarios 2, 3, and default) ----
-        count = self._request_counts.get(identity_id, 0) + 1
-        self._request_counts[identity_id] = count
-        if count > self._rate_limit_threshold:
-            r = (429, self._error_body("RATE_LIMIT_EXCEEDED",
-                                       "Too many requests from this identity."))
-            if idempotency_key:
-                self._idempotency_cache[idempotency_key] = r
-            return r
+        # Skip per-identity rate limiting for flagship demo (scenario 15)
+        if self._scenario_id != 15:
+            count = self._request_counts.get(identity_id, 0) + 1
+            self._request_counts[identity_id] = count
+            if count > self._rate_limit_threshold:
+                r = (429, self._error_body("RATE_LIMIT_EXCEEDED",
+                                           "Too many requests from this identity."))
+                if idempotency_key:
+                    self._idempotency_cache[idempotency_key] = r
+                return r
 
         # ---- Replay attacks (scenarios 6, 7, 8) ----
         if sid in (6, 7, 8):
@@ -242,8 +252,9 @@ class MockResponseFactory:
                 ))
                 
         # ---- IP Rate Limit Mock ----
+        # Skip network group rate limiting for flagship demo (scenario 15)
         network_group_id = (headers or {}).get("X-Network-Group-ID")
-        if network_group_id:
+        if network_group_id and self._scenario_id != 15:
             ng_count = self._request_counts.get(f"ng_{network_group_id}", 0) + 1
             self._request_counts[f"ng_{network_group_id}"] = ng_count
             if ng_count > 100:
@@ -263,26 +274,37 @@ class MockResponseFactory:
             return (200, {"status": "recorded", "risk_delta": 15})
 
         # ---- Duplicate registration ----
-        if identity_id in self._registered and "/register" in path:
-            result = (409, self._error_body(
-                "DUPLICATE_ENTRY",
-                "This participant has already registered for this campaign.",
-            ))
-            if idempotency_key:
-                self._idempotency_cache[idempotency_key] = result
-            return result
+        # Removed identity_id-based check - rely on idempotency_key-based deduplication
+        # Profiles may send multiple requests with same identity_id but different idempotency keys
+        # if identity_id in self._registered and "/register" in path:
+        #     logger.debug(f"Duplicate registration blocked: {identity_id} (registered set size: {len(self._registered)})")
+        #     result = (409, self._error_body(
+        #         "DUPLICATE_ENTRY",
+        #         "This participant has already registered for this campaign.",
+        #     ))
+        #     if idempotency_key:
+        #         self._idempotency_cache[idempotency_key] = result
+        #     return result
 
         # ---- Successful registration ----
         if "/register" in path or "/join" in path:
+            self._registration_request_count += 1
             self._registered.add(identity_id)
-            is_winner = self._assign_lottery_winner(identity_id)
+            # Add to valid entries for lottery (if not already there)
+            if identity_id not in self._valid_entries:
+                self._valid_entries.append(identity_id)
+                if len(self._valid_entries) % 10000 == 0:
+                    logger.info(f"Valid entries collected: {len(self._valid_entries)}")
+            # Winner status will be determined by lottery after all registrations complete
+            # For now, mark as not a winner
+            is_winner = False
             body = self._success_body({
                 "is_winner": is_winner,
                 "entitlement_id": str(uuid.uuid4()) if is_winner else None,
             })
             if risk_score_delta > 0:
                 body["risk_score"] = risk_score_delta
-            
+
             result = (201, body)
             if idempotency_key:
                 self._idempotency_cache[idempotency_key] = result
@@ -472,13 +494,16 @@ class SimulationEngine:
         campaign_id: str,
         worker_index: int,
         total_workers: int,
+        worker_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         assert self._semaphore and self._http_client
         await self._ramp_delay(worker_index, total_workers)
         async with self._semaphore:
+            # Use worker_config if provided, otherwise use base config
+            config = worker_config if worker_config is not None else self.config
             profile = profile_class(
                 config={
-                    **self.config,
+                    **config,
                     "identity_id": identity.get("participant_id",
                                                 identity.get("account_id", "")),
                 },
@@ -558,7 +583,7 @@ class SimulationEngine:
             profile_class.profile_type, total, campaign_id, self._mock_mode,
         )
         tasks = [
-            self._run_single_worker(profile_class, identity, campaign_id, idx, total)
+            self._run_single_worker(profile_class, identity, campaign_id, idx, total, None)
             for idx, identity in enumerate(identities)
         ]
         await asyncio.gather(*tasks, return_exceptions=True)
@@ -575,9 +600,12 @@ class SimulationEngine:
         global_idx = 0
         for population in populations:
             pc: Type[BaseProfile] = population["profile_class"]
+            profile_config = population.get("config", {})
             for identity in population["identities"]:
+                # Merge profile-specific config with base config
+                worker_config = {**self.config, **profile_config}
                 all_tasks.append(asyncio.create_task(
-                    self._run_single_worker(pc, identity, campaign_id, global_idx, total_workers)
+                    self._run_single_worker(pc, identity, campaign_id, global_idx, total_workers, worker_config)
                 ))
                 global_idx += 1
         await asyncio.gather(*all_tasks, return_exceptions=True)
@@ -710,8 +738,8 @@ Scenarios (--scenario):
                    help="Campaign ID to target (default: campaign_demo_001).")
     p.add_argument("--url", "--base-url", dest="url", default="http://localhost:8000",
                    help="Fair Drop API base URL (default: http://localhost:8000).")
-    p.add_argument("--concurrency", type=int, default=50,
-                   help="Max concurrent HTTP workers (default: 50).")
+    p.add_argument("--concurrency", type=int, default=200,
+                   help="Max concurrent HTTP workers (default: 200).")
     p.add_argument("--capacity", type=int, default=500,
                    help="Campaign seat capacity (default: 500).")
     p.add_argument("--timeout", type=float, default=10.0,
@@ -840,6 +868,22 @@ async def _generate_demo_assets(args: argparse.Namespace) -> None:
                 populations=scenario._populations,
                 campaign_id=cfg.campaign_id,
             )
+            # Finalize lottery after all registrations complete
+            if mock_mode and hasattr(engine._http_client, '_factory'):
+                factory = engine._http_client._factory
+                factory.finalize_lottery()
+                # Update is_winner flags in collector records to match actual lottery results
+                winner_set = factory._winner_identities
+                logger.info(f"Updating {len(engine.collector._records)} collector records with lottery results")
+                with engine.collector._lock:
+                    updated_count = 0
+                    for rec in engine.collector._records:
+                        if rec.identity_id in winner_set:
+                            rec.is_winner = True
+                            updated_count += 1
+                        else:
+                            rec.is_winner = False
+                    logger.info(f"Updated {updated_count} records to is_winner=True")
             collector = engine.collector
             summary = collector.summarize()
     except KeyboardInterrupt:

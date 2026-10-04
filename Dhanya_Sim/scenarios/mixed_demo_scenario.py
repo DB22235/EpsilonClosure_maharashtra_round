@@ -30,17 +30,18 @@ logger = logging.getLogger(__name__)
 
 
 # Population ratio: (profile_class, count, is_adversarial_label)
+# Scaled up to match target numbers: ~50,000+ total requests
 _POPULATION_SPEC = [
-    (NormalHuman,            300, False),
-    (SlowAccessibilityUser,   50, False),
-    (SharedNetworkUser,       30, False),
-    (FastBot,                 80, True),
-    (BurstBot,                40, True),
-    (RetryBot,                20, True),
-    (AccountFarm,             20, True),
-    (DirectApiBot,            15, True),
-    (TokenReplayAttacker,     10, True),
-    (RaceConditionAttacker,   10, True),
+    (NormalHuman,          35000, False),  # ~35,000 requests
+    (SlowAccessibilityUser,   850, False),  # ~850 requests
+    (SharedNetworkUser,     1000, False),  # ~1,000 requests
+    (FastBot,               4000, True),   # ~4,000 requests
+    (BurstBot,              2000, True),   # ~78,000 requests (via burst_size=25 * 2 waves * 2000)
+    (RetryBot,              3000, True),   # ~3,000 requests
+    (AccountFarm,           5000, True),   # ~5,000 requests
+    (DirectApiBot,          2000, True),   # ~2,000 requests
+    (TokenReplayAttacker,   1000, True),   # ~1,000 requests
+    (RaceConditionAttacker,  500, True),   # ~500 requests
 ]
 
 
@@ -60,7 +61,7 @@ class MixedDemoScenario(BaseScenario):
 
     name = "mixed_demo"
     description = (
-        "Full mixed-population demo: all 10 client profiles, ~575 total workers. "
+        "Full mixed-population demo: all 10 client profiles, ~55,000 total workers. "
         "Produces judge-ready fairness, integrity, and reliability evidence."
     )
 
@@ -76,9 +77,17 @@ class MixedDemoScenario(BaseScenario):
                 )
                 for i in range(count)
             ]
+            # Add profile-specific config overrides
+            profile_config = {}
+            if profile_class.profile_type == "account_farm":
+                profile_config["farm_size"] = 1  # Each worker = 1 identity for flagship demo
+            elif profile_class.profile_type == "burst_bot":
+                profile_config["burst_size"] = 25  # Each worker sends 25 requests per wave
+            
             self._populations.append({
                 "profile_class": profile_class,
                 "identities": ids,
+                "config": profile_config,
             })
             global_idx += count
 
